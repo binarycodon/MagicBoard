@@ -1,0 +1,108 @@
+/*!
+ * Magic Board v1
+ * Copyright 2013-2015 BinaryCodon, Inc.
+ * Licensed under xxx
+ */
+
+.hilight {
+    border:4px solid rgb(27,141,17);
+    z-index:10;position:absolute;
+    cursor:move;
+}
+
+.imgIcon {
+    float:left;height:50px;
+}
+
+.imgIcon:hover {
+    border:1px solid rgb(27,141,17);
+}
+
+.stretcher {
+    position:absolute;
+    width:20px;
+    height:20px;
+}
+
+.red {
+    background-color:red;
+    width:10px;
+    height:10px;
+    margin:5px;
+    border:1px solid lightblue;
+}
+
+.clickPrompt {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-top:115%;
+    margin-left: 4px;
+    vertical-align: middle;
+    border-top: 8px dashed red;
+    border-top: 8px solid\9;
+    border-right: 8px solid transparent;
+    border-left: 8px solid transparent;
+    cursor:hand;
+}
+
+.prompt
+{
+    position:absolute;left:35%;top:35%;width:350px;height:auto;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;background:white;color:rgb(27,141,17)"
+}
+
+.propLabel {
+    margin-left:15px;
+    width:135px;
+}
+
+.propInput {
+    width:50px;
+}
+
+.apply {
+    background-image: linear-gradient(to bottom,#5cb85c 0,#419641 100%);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff5cb85c', endColorstr='#ff419641', GradientType=0);
+    filter: progid:DXImageTransform.Microsoft.gradient(enabled=false);
+    background-repeat: repeat-x;
+    border-color: #3e8f3e;
+    color: #fff;
+
+}
+
+.cancel {
+    background-image: linear-gradient(to bottom,#f0ad4e 0,#eb9316 100%);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fff0ad4e', endColorstr='#ffeb9316', GradientType=0);
+    filter: progid:DXImageTransform.Microsoft.gradient(enabled=false);
+    background-repeat: repeat-x;
+    border-color: #e38d13;
+     color: #fff;
+}
+
+.button {
+    /* button */
+    
+    display: inline-block;
+    padding: 6px 12px;
+    margin-bottom: 0;
+    margin-right: 15px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.42857143;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    -ms-touch-action: manipulation;
+    touch-action: manipulation;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    border-radius: 4px;
+    
+}
+
+.prop {
+    padding-left:5px;
+}
