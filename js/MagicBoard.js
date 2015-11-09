@@ -2,6 +2,7 @@
  * Magic Board v1
  * Copyright 2015-2016 BinaryCodon, Inc.
  * Licensed under GNU Affero General Public License
+ * Author - Rajeev Shrivastava
  */
 
 var inheritsFrom = function (child, parent) {
