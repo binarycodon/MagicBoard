@@ -1,3 +1,9 @@
+/*!
+ * Magic Board v1
+ * Copyright 2015-2016 BinaryCodon, Inc.
+ * Licensed under GNU Affero General Public License
+ */
+
 var inheritsFrom = function (child, parent) {
     child.prototype = Object.create(parent.prototype);
 };
