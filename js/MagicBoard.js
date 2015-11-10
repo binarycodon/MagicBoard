@@ -40,8 +40,8 @@ MagicBoard.properties = {
     "line-color":{"propName":"stroke","propType":"attribute","label":"Line Color","field":"input","values":[{"name":"","value":"#1b8d11","type":"color"}]},
     "line-width":{"propName":"stroke-width","propType":"attribute","label":"Line Width","field":"input","values":[{"name":"","value":"1","type":"text"}]},
     "line-style":{"propName":"stroke-dasharray","propType":"attribute","label":"Line Style","field":"select","values":[{"name":"Solid","value":"","type":""},{"name":"Dash","value":"5,5","type":""},{"name":"Dotted","value":"1,1","type":""}]},
-    "end-marker":{"propName":"marker-end","propType":"attribute","label":"End Marker","field":"select","values":[{"name":"Filled Arrow",value:"url(#fillArrowE)"},{"name":"Hollow Arrow",value:"url(#hollowArrowE)"},{"name":"Regular Arrow",value:"url(#lineArrowE)"},{"name":"Cicle",value:"url(#dot)"},{"name":"Hollow Diamond",value:"url(#hollowDiamond)"},{"name":"Filled Diamond",value:"url(#fillDiamond)"}]},
-    "start-marker":{"propName":"marker-start","propType":"attribute","label":"Start Marker","field":"select","values":[{"name":"Filled Arrow",value:"url(#fillArrowS)"},{"name":"Hollow Arrow",value:"url(#hollowArrowS)"},{"name":"Regular Arrow",value:"url(#lineArrowS)"},{"name":"Cicle",value:"url(#dot)"},{"name":"Hollow Diamond",value:"url(#hollowDiamond)"},{"name":"Filled Diamond",value:"url(#fillDiamond)"}]},
+    "end-marker":{"propName":"marker-end","propType":"attribute","label":"End Marker","field":"select","values":[{"name":"Filled Arrow",value:"url(#fillArrowE)"},{"name":"Hollow Arrow",value:"url(#hollowArrowE)"},{"name":"Regular Arrow",value:"url(#lineArrowE)"},{"name":"Cicle",value:"url(#dot)"},{"name":"Hollow Diamond",value:"url(#hollowDiamond)"},{"name":"Filled Diamond",value:"url(#fillDiamond)"},{"name":"No Arrow",value:""}]},
+    "start-marker":{"propName":"marker-start","propType":"attribute","label":"Start Marker","field":"select","values":[{"name":"Filled Arrow",value:"url(#fillArrowS)"},{"name":"Hollow Arrow",value:"url(#hollowArrowS)"},{"name":"Regular Arrow",value:"url(#lineArrowS)"},{"name":"Cicle",value:"url(#dot)"},{"name":"Hollow Diamond",value:"url(#hollowDiamond)"},{"name":"Filled Diamond",value:"url(#fillDiamond)"},{"name":"No Arrow",value:""}]},
     "mid-marker":{"propName":"marker-mid","propType":"attribute","field":"select","label":"Mid Marker","values":[{"name":"Dot",value:"url(#dot)"}]}
 }
 /**
@@ -1579,14 +1579,13 @@ var ConnectorLine = function(_cInfo)
     var cx1,cx2,cy1,cy2,x1,y1;
     this.cInfo = _cInfo;
     
-    console.log(_cInfo.orientation);
     if (_cInfo.orientation === "vert")
     {
         lines.push({"op":"L","x":pos.x1,"y":midY});
         lines.push({"op":"L","x":x2,"y":midY});
         
         d.push({"op":"L","x":(pos.x1- left)*100/width,"y":(midY - top)*100/height});
-        d.push({"op":"L","x":(x2*100- left)/width,"y":(midY - top)*100/height});
+        d.push({"op":"L","x":(x2- left)*100/width,"y":(midY - top)*100/height});
         //dString += " L"+pos.x1+" "+midY;
         //dString += " L"+x2+" "+midY;
         
@@ -1933,8 +1932,15 @@ ShapeComponent.prototype.applyProperty = function(_name,_type,_value)
 {
     if (_type === "attribute")
     {
-        this.dom.setAttribute(_name,_value);
-        this.param[_name] = _value;
+        
+        if (!_value)
+        {
+            this.dom.removeAttribute(_name);
+            delete this.param[_name];
+        } else {
+            this.dom.setAttribute(_name,_value);
+            this.param[_name] = _value;
+        }
     } else if (_type === "dom")
     {
         this.dom.innerHTML = _value;
@@ -2784,9 +2790,18 @@ Utility.Shape.calculateConnectionPoints = function(beginShape,endShape)
             
             if (diffY_12_23 > 50)
             {
-                x1 = bEdge.m12.x;y1 = bEdge.m12.y;
-                x2 = eEdge.m23.x;y2 = eEdge.m23.y;
-                orientation = "horizvert";
+                if ((bEdge.m12.x - eEdge.m34.x) > 50)
+                {
+                    x1 = bEdge.m12.x;y1 = bEdge.m12.y;
+                    x2 = eEdge.m34.x;y2 = eEdge.m34.y;
+                    orientation = "vert";
+                } else
+                {
+                    x1 = bEdge.m12.x;y1 = bEdge.m12.y;
+                    x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+                    orientation = "horizvert";
+                }
+
             } else if (diffY_34_23 > 50)
             {
                 
@@ -2796,8 +2811,24 @@ Utility.Shape.calculateConnectionPoints = function(beginShape,endShape)
                 orientation = "horizvert";
             } else
             {
-                x1 = bEdge.m41.x;y1 = bEdge.m41.y;
-                x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+               if (diffY_41_23 > 50)
+               {
+                   var diffY_41_34 = bEdge.m41.y - eEdge.m34.y;
+                   if (diffY_41_34 > 50)
+                   {
+                       x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+                       x2 = eEdge.m34.x;y2 = eEdge.m34.y;
+                   } else
+                   {
+                       x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+                       x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+                   }
+               } else
+               {
+                   x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+                   x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+               }
+               
             }
         }
         
@@ -2833,9 +2864,17 @@ Utility.Shape.calculateConnectionPoints = function(beginShape,endShape)
                 orientation = "horizvert";
             } else if (diffY_23_12 > 50)
             {
-                x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-                x2 = eEdge.m12.x;y2 = eEdge.m12.y;
-                orientation = "horizvert";
+                if ( (eEdge.m41.x - bEdge.m23.x) > 50)
+                {
+                    x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+                    x2 = eEdge.m41.x;y2 = eEdge.m41.y;
+                } else
+                {
+                    x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+                    x2 = eEdge.m12.x;y2 = eEdge.m12.y;
+                    orientation = "horizvert";
+                }
+
             } else
             {
                 x1 = bEdge.m23.x;y1 = bEdge.m23.y;
