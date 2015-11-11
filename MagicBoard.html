@@ -61,11 +61,23 @@
        
        if (fLen)
        {  // this means external files are dragged
-           tempDraw();
+           //tempDraw();
            for (var i = 0; i < files.length; i++) {
                var file = files[i];
                var fileType = file.type;
                var fileName = file.name;
+               var reader = new FileReader();
+               
+               reader.onload = function(e) {
+                   var jsonString = reader.result;
+                   var obj = JSON.parse(jsonString);
+                   var sheet1 = new Sheet(obj);
+                   MagicBoard.sheetBook.addSheet(sheet1);
+                   MagicBoard.sheetBook.setCurrentSheet(sheet1);
+                   Utility.Sheet.connectIds();
+               }
+               
+               reader.readAsText(file);
            }
        } else
        {
@@ -391,6 +403,12 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
    
    function saveSheet()
    {
+       var saved = MagicBoard.sheetBook.currentSheet.save();
+
+       var a = document.createElement("a");
+       a.setAttribute("download",MagicBoard.sheetBook.currentSheet.name+".json");
+       a.href = "data:application/json,"+JSON.stringify(saved);
+       a.click();
        alert("Sheet - "+MagicBoard.sheetBook.currentSheet.name+" saved ");
    }
    
