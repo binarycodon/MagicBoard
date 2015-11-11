@@ -274,7 +274,6 @@ var Sheet = function(_options)
  */
     Sheet.prototype.init = function()
     {
-        this.shapes = [];
         this.removedShapes = []; // keep only last 5
         
         this.canvas = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -311,7 +310,17 @@ var Sheet = function(_options)
                 this.courseGrids.push(grid);
             }
         }
-
+        MagicBoard.sheetBook.currentSheet = this;
+        this.shapes = [];
+        if (this.options.shapes)
+        {
+            for (var s = 0, sLen = this.options.shapes.length;s < sLen ;s++)
+            {
+                var shape = new Shape(this.options.shapes[s]);
+                shape.draw();
+                shape.addHover();
+            }
+        }
     }
 
 /**
@@ -507,6 +516,23 @@ var Sheet = function(_options)
             conn.push(cInfo);
         return cInfo;
     }
+/**
+ *  This function returns saved json format
+ *  @return {Object} saved JSON
+ */
+Sheet.prototype.save = function()
+{
+    var saved = {};
+    saved.options = this.options;
+    saved.shapes = [];
+    for (var s = 0,sLen = this.shapes.length; s < sLen;s++)
+    {
+        var shape = this.shapes[s];
+        var shapeJson = shape.save();
+        if (shapeJson) saved.shapes.push(shapeJson);
+    }
+    return saved;
+}
 
 /**
  * This Function removes any connection to the shape. The connection can be incoming or outgoing
@@ -763,6 +789,88 @@ Drawing.roundRect = function(ctx, x, y, width, height, radius, fill, stroke) {
 }
 
 /**
+ * This Function draws ellipse into canvas context
+ *  @param {2D_Context} _ctx
+ *  @param {Number} _cx center of ellipse
+ *  @param {Number} _cy center of ellipse
+ *  @param {Number} _rx x radius of ellipse
+ *  @param {Number} _ry y radius of ellipse
+ *  @param {Color} _fill
+ *  @param {Color} _stroke
+ *  @returns - nothing
+ */
+Drawing.drawEllipse = function(_ctx, _cx , _cy , _rx , _ry, _fill, _stroke ) {
+    var x = _cx - _rx;
+    var y = _cy - _ry;
+    var w = _rx * 2;
+    var h = _ry * 2;
+    
+    var kappa = .5522848,
+     ox = _rx * kappa, // control point offset horizontal
+     oy = _ry * kappa, // control point offset vertical
+     xe = x + w,           // x-end
+     ye = y + h;           // y-end
+
+
+    _ctx.beginPath();
+    _ctx.moveTo(x, _cy);
+    _ctx.bezierCurveTo(x, _cy - oy, _cx - ox, y, _cx, y);
+    _ctx.bezierCurveTo(_cx + ox, y, xe, _cy - oy, xe, _cy);
+    _ctx.bezierCurveTo(xe, _cy + oy, _cx + ox, ye, _cx, ye);
+    _ctx.bezierCurveTo(_cx - ox, ye, x, _cy + oy, x, _cy);
+    //ctx.closePath(); // not used correctly, see comments (use to close off open path)
+    if (_fill) {
+        _ctx.fillStyle = _fill;
+        _ctx.fill();
+    }
+    if (_stroke) {
+        _ctx.strokeStyle = _stroke;
+    }
+    _ctx.stroke();
+}
+
+/**
+ * This Function draws multiple lines into canvas context
+ *  @param {2D_Context} _ctx
+ *  @param  {Number} _offsetX - offset any X coordinate by this number
+ *  @param  {Number} _offsetY - offset any Y coordinate by this number
+ *  @param {String} _d contains d parameter as used in SVG Path
+ *  @param {Color} _fill
+ *  @param {Color} _stroke
+ *  @returns - nothing
+ */
+Drawing.drawLines = function(_ctx,_offsetX,_offsetY,_d,_fill,_stroke)
+{
+    _ctx.beginPath();
+
+    if (_stroke) {
+        _ctx.strokeStyle = _stroke;
+    }
+    var words = _d.split(" ");
+    for (var w = 0, wLen = words.length;w < wLen;w++)
+    {
+        var letter = words[w++];
+        switch (letter)
+        {
+            case "M":
+                var x = parseInt(words[w++])+_offsetX, y = parseInt(words[w])+_offsetY;
+                _ctx.moveTo(x,y);
+                break;
+            case "L":
+                var x = parseInt(words[w++])+_offsetX, y = parseInt(words[w])+_offsetY;
+                _ctx.lineTo(x,y);
+                break;
+        }
+
+    }
+    if (_fill) {
+        _ctx.fillStyle = _fill;
+        _ctx.fill();
+    }
+    _ctx.stroke();
+}
+
+/**
  * This Class is super class for all Shapes that can be drawn
  *  @constructor
  */
@@ -782,7 +890,9 @@ var Shape = function(_desc) {
     
     this.param = JSON.parse(JSON.stringify(_desc.param));
     this.frame = JSON.parse(JSON.stringify(_desc.frame));
-    
+    if (_desc.connectedFromIds) this.connectedFromIds = _desc.connectedFromIds;
+    if (_desc.connectedToIds) this.connectedToIds = _desc.connectedToIds;
+    if (_desc.id) this.id = _desc.id;
     this.properties = {};
     this.components = [];
     var cLen = _desc.componentParms.length;
@@ -819,7 +929,7 @@ Shape.prototype.init = function()
     }
     var dim = {"misc":{"unit":null,"key":[]}}; var borderWidth = null; var strokeStyle = null;var fillStyle = null;
     this.dimension = this.frame;
-    this.id = this.currentSheet.shapes.length;
+    if (!this.id) this.id = this.currentSheet.shapes.length;
     
     this.currentSheet.addShape(this);
     this.connectedTo = [];
@@ -1482,6 +1592,48 @@ Shape.prototype.updateText = function(_text,_index)
     }
 }
 
+/**
+ *  This function returns saved json format
+ *  @return {Object} saved JSON
+ */
+Shape.prototype.save = function()
+{
+    var saved = {};
+    for (var k in this)
+    {
+        if (k === "cInfo") continue;
+        if (k === "components")
+        {
+            saved["componentParms"] = [];
+            var cLen = this.components.length;
+            for (var c = 0; c < cLen ; c++)
+            {
+                var shapeComponent = this.components[c];
+                saved["componentParms"].push(shapeComponent.save());
+                
+            }
+            continue;
+        }
+        
+        if (k === "connectedFrom" || k === "connectedTo")
+        {
+            saved[k+"Ids"] = [];
+            var cLen = this[k].length;
+            for (var c = 0; c < cLen ; c++)
+            {
+                var shape = this[k][c];
+                saved[k+"Ids"].push(shape.id);
+            }
+            continue;
+        }
+
+            var name = this[k].constructor.name
+            if ( name === "Number" || name === "String" || name === "Object" )
+                saved[k] = this[k];
+
+    }
+    return saved;
+}
 
 
 /**
@@ -1671,6 +1823,12 @@ inheritsFrom(ConnectorLine,Shape);
 /*
    Override functions
  */
+
+ConnectorLine.prototype.save = function()
+{
+    // do not save connectors, let it rebuild
+    return null;
+}
 /*
 ConnectorLine.prototype.click = function()
 {
@@ -1801,6 +1959,22 @@ ShapeComponent.prototype.construct = function()
 }
 
 /**
+ *  This function returns saved json format
+ *  @return {Object} saved JSON
+ */
+ShapeComponent.prototype.save = function()
+{
+    var saved = {};
+    for (var k in this)
+    {
+        var name = this[k].constructor.name
+         if ( name === "String" || name === "Object" )
+            saved[k] = this[k];
+    }
+    return saved;
+}
+
+/**
  *  This function converts the % dimensions to real pixel
  *  @return nothing
  */
@@ -1911,13 +2085,19 @@ ShapeComponent.prototype.drawOnCanvas = function(_context)
             break;
         case "circle":
             break;
-        case "eclipse":
+        case "ellipse":
+            var cx = this.derivedDimension.cx + left;
+            var cy = this.derivedDimension.cy + top;
+            Drawing.drawEllipse(_context, cx , cy , this.derivedDimension.rx , this.derivedDimension.ry, fill, this.param["stroke"] );
             break;
         case "path":
+            Drawing.drawLines(_context,left,top,this.derivedDimension.d,fill,this.param["stroke"] );
             break;
         case "polyline":
             break;
         case "text":
+            if (fill) _context.fillStyle = fill;
+            if (this.param["stroke"] ) _context.strokeStyle = this.param["stroke"] ;
             _context.fillText(this.innerHTML,x,y);
             break;
     }
@@ -2495,6 +2675,56 @@ Utility.Sheet.findOwner = function(_dom)
     }
     
     return null;
+}
+/**
+ *  This Utility function is for internal use only
+ */
+Utility.Sheet.connectIds = function()
+{
+    var _sheet = MagicBoard.sheetBook.currentSheet;
+    var sLen = _sheet.shapes.length;
+    for (var s = 0; s < sLen;s++)
+    {
+        var shape = _sheet.shapes[s];
+        if (shape.connectedFromIds)
+        {
+            for (var c = 0, cLen = shape.connectedFromIds.length; c < cLen;c++)
+            {
+                var bId = shape.connectedFromIds[c];
+                // find beginShapes
+                shape.connectedFrom.push(Utility.Sheet.findShapeById(bId));
+            }
+        }
+        if (shape.connectedToIds)
+        {
+            for (var c = 0, cLen = shape.connectedToIds.length; c < cLen;c++)
+            {
+                var eId = shape.connectedToIds[c];
+                // find endShapes
+                shape.connectedTo.push(Utility.Sheet.findShapeById(eId));
+            }
+        }
+    }
+    for (var s = 0; s < sLen;s++)
+    {
+        var shape = _sheet.shapes[s];
+        shape.refreshConnection();
+    }
+    //refreshConnection
+}
+
+/**
+ *  This Utility function is for internal use only
+ */
+Utility.Sheet.findShapeById = function(_id)
+{
+    var _sheet = MagicBoard.sheetBook.currentSheet;
+    var sLen = _sheet.shapes.length;
+    for (var s = 0; s < sLen;s++)
+    {
+        var shape = _sheet.shapes[s];
+        if (shape.id === _id) return shape;
+    }
 }
 /**
  *  This Utility function to apply changes to internal properties of the shape.
