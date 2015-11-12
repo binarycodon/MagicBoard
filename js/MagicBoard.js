@@ -670,207 +670,6 @@ var Point = function(_x,_y)
 }
 
 /**
- * This Class was originally created to draw extra shapes but it is not used in this version currently
- *  @constructor
- */
-var Drawing = {};
-
-/**
- * This Function returns angle between two points
- *  @param {Number} x2
- *  @param {Number} y2
- *  @param {Number} x1
- *  @param {Number} y1
- *  @returns - {Number} angle
- */
-Drawing.getLineAngle = function(x2,y2,x1,y1)
-{
-    return Math.atan2(y2-y1,x2-x1);
-}
-
-/**
- * This Function coordinates for arrow head
- *  @param {Number} x
- *  @param {Number} y
- *  @angle {Number} angle in degree
- *  @returns - {Object} - containing coodinates {x1,x2,y1,y2}
- */
-Drawing.getArrowHead = function(x,y,angle)
-{
-    var headlen = 10;   // length of head in pixels
-    //var angle = Math.atan2(yMid-y1,xMid-x1);
-    
-    var x1,x2,y1,y2;
-    x1 = x-headlen*Math.cos(angle-Math.PI/6);
-    y1 = y-headlen*Math.sin(angle-Math.PI/6);
-    x2 = x-headlen*Math.cos(angle+Math.PI/6);
-    y2 = y-headlen*Math.sin(angle+Math.PI/6);
-    
-  return {x1:x1,x2:x2,y1:y1,y2:y2};
-}
-
-/**
- * This Function draws arrow head into canvas for a given coordinates
- *  @param {2D_Context} cntx
- *  @param {Number} x
- *  @param {Number} y
- *  @param {Number} angle
- *  @returns - {Object} - containing coordinates {x1,x2,y1,y2}
- */
-Drawing.drawArrow = function(cntx,x,y,angle)
-{
- 
-    var headlen = 10;   // length of head in pixels
-    //var angle = Math.atan2(yMid-y1,xMid-x1);
-    
-    var x1,x2,y1,y2;
-    x1 = x-headlen*Math.cos(angle-Math.PI/6);
-    y1 = y-headlen*Math.sin(angle-Math.PI/6);
-    x2 = x-headlen*Math.cos(angle+Math.PI/6);
-    y2 = y-headlen*Math.sin(angle+Math.PI/6);
-    
-    cntx.beginPath();
-    
-    cntx.moveTo(x, y);
-    cntx.lineTo(x1,y1);
-    cntx.moveTo(x, y);
-    cntx.lineTo(x2,y2);
-    cntx.stroke();
-    
-    return {x1:x1,x2:x2,y1:y1,y2:y2};
-}
-
-
-/**
- * This Function draws rounded corner rectangle into canvas context
- *  @param {2D_Context} cntx
- *  @param {Number} x
- *  @param {Number} y
- *  @param {Number} width
- *  @param {Number} height
- *  @param {Number} radius
- *  @param {Color} fill
- *  @param {Color} stroke
- *  @returns - nothing
- */
-Drawing.roundRect = function(ctx, x, y, width, height, radius, fill, stroke) {
-    if (typeof stroke == 'undefined') {
-        stroke = true;
-    }
-    if (typeof radius === 'undefined') {
-        radius = 5;
-    }
-    if (typeof radius === 'number') {
-        radius = {tl: radius, tr: radius, br: radius, bl: radius};
-    } else {
-        var defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
-        for (var side in defaultRadius) {
-            radius[side] = radius[side] || defaultRadius[side];
-        }
-    }
-    ctx.beginPath();
-    ctx.moveTo(x + radius.tl, y);
-    ctx.lineTo(x + width - radius.tr, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
-    ctx.lineTo(x + width, y + height - radius.br);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
-    ctx.lineTo(x + radius.bl, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
-    ctx.lineTo(x, y + radius.tl);
-    ctx.quadraticCurveTo(x, y, x + radius.tl, y);
-    ctx.closePath();
-    if (fill) {
-        ctx.fill();
-    }
-    if (stroke) {
-        ctx.stroke();
-    }
-    
-}
-
-/**
- * This Function draws ellipse into canvas context
- *  @param {2D_Context} _ctx
- *  @param {Number} _cx center of ellipse
- *  @param {Number} _cy center of ellipse
- *  @param {Number} _rx x radius of ellipse
- *  @param {Number} _ry y radius of ellipse
- *  @param {Color} _fill
- *  @param {Color} _stroke
- *  @returns - nothing
- */
-Drawing.drawEllipse = function(_ctx, _cx , _cy , _rx , _ry, _fill, _stroke ) {
-    var x = _cx - _rx;
-    var y = _cy - _ry;
-    var w = _rx * 2;
-    var h = _ry * 2;
-    
-    var kappa = .5522848,
-     ox = _rx * kappa, // control point offset horizontal
-     oy = _ry * kappa, // control point offset vertical
-     xe = x + w,           // x-end
-     ye = y + h;           // y-end
-
-
-    _ctx.beginPath();
-    _ctx.moveTo(x, _cy);
-    _ctx.bezierCurveTo(x, _cy - oy, _cx - ox, y, _cx, y);
-    _ctx.bezierCurveTo(_cx + ox, y, xe, _cy - oy, xe, _cy);
-    _ctx.bezierCurveTo(xe, _cy + oy, _cx + ox, ye, _cx, ye);
-    _ctx.bezierCurveTo(_cx - ox, ye, x, _cy + oy, x, _cy);
-    //ctx.closePath(); // not used correctly, see comments (use to close off open path)
-    if (_fill) {
-        _ctx.fillStyle = _fill;
-        _ctx.fill();
-    }
-    if (_stroke) {
-        _ctx.strokeStyle = _stroke;
-    }
-    _ctx.stroke();
-}
-
-/**
- * This Function draws multiple lines into canvas context
- *  @param {2D_Context} _ctx
- *  @param  {Number} _offsetX - offset any X coordinate by this number
- *  @param  {Number} _offsetY - offset any Y coordinate by this number
- *  @param {String} _d contains d parameter as used in SVG Path
- *  @param {Color} _fill
- *  @param {Color} _stroke
- *  @returns - nothing
- */
-Drawing.drawLines = function(_ctx,_offsetX,_offsetY,_d,_fill,_stroke)
-{
-    _ctx.beginPath();
-
-    if (_stroke) {
-        _ctx.strokeStyle = _stroke;
-    }
-    var words = _d.split(" ");
-    for (var w = 0, wLen = words.length;w < wLen;w++)
-    {
-        var letter = words[w++];
-        switch (letter)
-        {
-            case "M":
-                var x = parseInt(words[w++])+_offsetX, y = parseInt(words[w])+_offsetY;
-                _ctx.moveTo(x,y);
-                break;
-            case "L":
-                var x = parseInt(words[w++])+_offsetX, y = parseInt(words[w])+_offsetY;
-                _ctx.lineTo(x,y);
-                break;
-        }
-
-    }
-    if (_fill) {
-        _ctx.fillStyle = _fill;
-        _ctx.fill();
-    }
-    _ctx.stroke();
-}
-
-/**
  * This Class is super class for all Shapes that can be drawn
  *  @constructor
  */
@@ -1700,7 +1499,7 @@ Shape.prototype.drawOnCanvas = function(_context)
 
 
 /**
- *Connector Line Class is used draw connection between two shapes
+ * Connector Line Class is used draw connection between two shapes
  * The class itself inherits from Shape Class
  * @constructor
  * @param _cInfo - is an object that consists of the following pos (x1,y1,x2,y2)
@@ -1709,6 +1508,10 @@ Shape.prototype.drawOnCanvas = function(_context)
  */
 var ConnectorLine = function(_cInfo)
 {
+    //
+    var angleStart,angleEnd;
+    //angleStart = Drawing.getLineAngle(x2,y2,x1,y1),angleEnd = angleStart;
+    //,"angleStart":angleStart,"angleEnd":angleEnd
     //
     var arrowLen = 0;
     var cLine = this;
@@ -1736,8 +1539,13 @@ var ConnectorLine = function(_cInfo)
         lines.push({"op":"L","x":pos.x1,"y":midY});
         lines.push({"op":"L","x":x2,"y":midY});
         
+        angleStart = Drawing.getLineAngle(x1,y1,x1,midY);
+        angleEnd = Drawing.getLineAngle(x2,y2,x2,midY);
+        
         d.push({"op":"L","x":(pos.x1- left)*100/width,"y":(midY - top)*100/height});
         d.push({"op":"L","x":(x2- left)*100/width,"y":(midY - top)*100/height});
+        
+
         //dString += " L"+pos.x1+" "+midY;
         //dString += " L"+x2+" "+midY;
         
@@ -1749,6 +1557,10 @@ var ConnectorLine = function(_cInfo)
     } else if (_cInfo.orientation === "horizvert")
     {
         lines.push({"op":"L","x":pos.x2,"y":pos.y1});
+        
+        angleStart = Drawing.getLineAngle(x1,y1,pos.x2,pos.y1);
+        angleEnd = Drawing.getLineAngle(x2,y2,pos.x2,pos.y1);
+        
         d.push({"op":"L","x":(pos.x2- left)*100/width,"y":(pos.y1 - top)*100/height});
         //dString += " L"+pos.x2+" "+pos.y1;
         
@@ -1761,6 +1573,9 @@ var ConnectorLine = function(_cInfo)
     {
         lines.push({"op":"L","x":midX,"y":pos.y1});
         lines.push({"op":"L","x":midX,"y":y2});
+        
+        angleStart = Drawing.getLineAngle(x1,y1,midX,pos.y1);
+        angleEnd = Drawing.getLineAngle(x2,y2,midX,y2);
         
         d.push({"op":"L","x":(midX - left)*100/width,"y":(pos.y1 - top)*100/height});
         d.push({"op":"L","x":(midX - left)*100/width,"y":(y2 - top)*100/height});
@@ -1783,6 +1598,7 @@ var ConnectorLine = function(_cInfo)
 
     var conn = {"type":"path","origDim":{},"dimension":{"d":d},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2,"cursor":"hand","marker-end":"url(#fillArrowE)"},"lines":lines,properties:{"line-style":true,"line-type":true,"line-color":true,"start-marker":true,"end-marker":true,"mid-marker":true}}
     
+    this.cInfo.angleStart = angleStart; this.cInfo.angleEnd = angleEnd;
     if (_cInfo.param) conn.param = _cInfo.param;
     if (_cInfo.properties) conn.properties = _cInfo.properties;
     
@@ -1793,11 +1609,16 @@ var ConnectorLine = function(_cInfo)
     var cdom = component.dom;
     cdom.onmouseover = function () {
         MagicBoard.indicators.mouseover.push(cLine);
+        var pos = MagicBoard.getPos(event);
+        var starStyle = MagicBoard.sheetBook.star.style;
+        starStyle["display"] = "block";starStyle["left"] = pos.x - 15; starStyle["top"] = pos.y - 15;
+        MagicBoard.sheetBook.star.cLine = cLine;
         //console.log("mouse over "+event.target+" current "+event.currentTarget);
     }
     
     cdom.onmouseout = function () {
         event.preventDefault();
+        setTimeout(function(){MagicBoard.sheetBook.star.style["display"] = "none";},800);
         // find the shape and remove it
         for (var i = MagicBoard.indicators.mouseover.length -1;i > -1;i--)
         {
@@ -1828,6 +1649,45 @@ ConnectorLine.prototype.save = function()
 {
     // do not save connectors, let it rebuild
     return null;
+}
+
+
+ConnectorLine.prototype.drawOnCanvas = function(_context)
+{
+    _context.beginPath();
+    var cLen = this.components.length;
+    for (var c = 0; c < cLen ; c++)
+    {
+        var shapeComponent = this.components[c];
+        shapeComponent.drawOnCanvas(_context);
+        if (shapeComponent.param["marker-end"])
+        {
+            var type = shapeComponent.param["marker-end"];
+            if (type === "url(#fillArrowE)") type = "Filled";
+            else if (type === "url(#hollowArrowE)") type = "Hollow";
+            else if (type === "url(#hollowDiamond)") type = "DiamondHollow";
+            else if (type === "url(#fillDiamond)") type = "DiamondFilled";
+            else if (type === "url(#dot)") type = "Dot";
+            else type = "Regular";
+            var lines = shapeComponent.lines; var last = lines[lines.length - 1];
+            // hoping that first of line is lineTo if not we have to fix it in future
+            Drawing.drawArrow(_context,(last.x + this.dimension.left ),(last.y + this.dimension.top),this.cInfo.angleEnd,type,shapeComponent.param.fill,shapeComponent.param.stroke);
+        }
+        if (shapeComponent.param["marker-start"])
+        {
+            var type = shapeComponent.param["marker-start"];
+            if (type === "url(#fillArrowS)") type = "Filled";
+            else if (type === "url(#hollowArrowS)") type = "Hollow";
+            else if (type === "url(#hollowDiamond)") type = "DiamondHollow";
+            else if (type === "url(#fillDiamond)") type = "DiamondFilled";
+            else if (type === "url(#dot)") type = "Dot";
+            else type = "Regular";
+            var lines = shapeComponent.lines; var first = lines[0];
+            // hoping that first of line is Move
+            Drawing.drawArrow(_context,(first.x + this.dimension.left ),(first.y + this.dimension.top),this.cInfo.angleStart,type,shapeComponent.param.fill,shapeComponent.param.stroke);
+        }
+    }
+    _context.stroke();
 }
 /*
 ConnectorLine.prototype.click = function()
@@ -2024,6 +1884,7 @@ ShapeComponent.prototype.calculateDimensions = function()
                 break;
             case "d":
                 // put path logic here
+                if (!this.lines) this.lines = [];
                 var dArray = percentVal;var dLen = dArray.length;
                 for (var i = 0; i < dLen ;i++)
                 {
@@ -2035,9 +1896,11 @@ ShapeComponent.prototype.calculateDimensions = function()
                     //val += item.op.toUpperCase() +Math.round( item.x * pw / 100)+" "+Math.round( item.y * ph / 100)+" ";
                     for (var ik in item)
                     {
-                        if (ik.indexOf("x") > -1) val += Math.round( item[ik] * pw / 100) +" ";
-                        else if (ik.indexOf("y") > -1) val += Math.round( item[ik] * ph / 100) +" ";
-                        else val += item[ik]+" ";
+                        var vl = item[ik];
+                        if (ik.indexOf("x") > -1) vl = Math.round( item[ik] * pw / 100) ;
+                        else if (ik.indexOf("y") > -1) vl = Math.round( item[ik] * ph / 100) ;
+                        this.lines[i][ik] = vl;
+                        val += vl+" ";
                     }
                 }
                 break;
@@ -2070,16 +1933,31 @@ ShapeComponent.prototype.drawOnCanvas = function(_context)
     var left = this.parentShape.dimension.left;
     var top = this.parentShape.dimension.top;
     
+    var margin = 0;
+    if (this.param["stroke-width"])
+    {
+        margin = parseInt(this.param["stroke-width"]);
+    }
+    
     var x = this.derivedDimension.x + left;
     var y = this.derivedDimension.y + top;
+    if (!x) x = left;
+    if (!y) y = top;
     var fill = this.param["fill"];
     if (fill === "none") fill = "";
+    var dashSet = false;
+    if (this.param["stroke-dasharray"]) {
+        var str = this.param["stroke-dasharray"]; var arr = str.split(",");
+        _context.setLineDash(arr); dashSet = true;
+    //setLineDash([1, 15]);
+    }
     
     switch (this.type)
     {
         case "rect":
             if (fill)
             {
+                _context.fillStyle = fill;
                 _context.fillRect(x,y,this.derivedDimension.width,this.derivedDimension.height);
             } else _context.strokeRect(x,y,this.derivedDimension.width,this.derivedDimension.height);
             break;
@@ -2091,7 +1969,7 @@ ShapeComponent.prototype.drawOnCanvas = function(_context)
             Drawing.drawEllipse(_context, cx , cy , this.derivedDimension.rx , this.derivedDimension.ry, fill, this.param["stroke"] );
             break;
         case "path":
-            Drawing.drawLines(_context,left,top,this.derivedDimension.d,fill,this.param["stroke"] );
+            Drawing.drawLines(_context,left,top,this.derivedDimension.d,fill,this.param["stroke"],margin );
             break;
         case "polyline":
             break;
@@ -2101,6 +1979,7 @@ ShapeComponent.prototype.drawOnCanvas = function(_context)
             _context.fillText(this.innerHTML,x,y);
             break;
     }
+    if (dashSet) _context.setLineDash([]);
 }
 
 /**
@@ -2138,6 +2017,268 @@ ShapeComponent.prototype.updateText = function(_text)
 }
 
 
+/**
+ * This Class was originally created to draw extra shapes but it is not used in this version currently
+ * @namespace Drawing
+ */
+var Drawing = {};
+
+
+/**
+ * This Function returns angle between two points
+ *  @static
+ *  @param {Number} x2
+ *  @param {Number} y2
+ *  @param {Number} x1
+ *  @param {Number} y1
+ *  @returns - {Number} angle in radian
+ */
+Drawing.getLineAngle = function(x2,y2,x1,y1)
+{
+    return Math.atan2(y2-y1,x2-x1);
+}
+
+/**
+ * This Function coordinates for arrow head
+ *  @static
+ *  @param {Number} _x
+ *  @param {Number} _y
+ *  @param {Number} _angle in radian
+ *  @returns - {Object} - containing coodinates {x1,x2,y1,y2}
+ */
+Drawing.getArrowHead = function(_x,_y,_angle)
+{
+    var headlen = 10;   // length of head in pixels
+    //var angle = Math.atan2(yMid-y1,xMid-x1);
+    
+    var x1,x2,y1,y2;
+    x1 = _x-headlen*Math.cos(_angle-Math.PI/6);
+    y1 = _y-headlen*Math.sin(_angle-Math.PI/6);
+    x2 = _x-headlen*Math.cos(_angle+Math.PI/6);
+    y2 = _y-headlen*Math.sin(_angle+Math.PI/6);
+    
+    return {x1:x1,x2:x2,y1:y1,y2:y2};
+}
+
+/**
+ * This Function draws arrow head into canvas for a given coordinates
+ *  @static
+ *  @param {2D_Context} _cntx
+ *  @param {Number} _x
+ *  @param {Number} _y
+ *  @param {Number} _angle
+ *  @param {String} _type (type of arrows - Regular, Filled, Hollow, DiamondFilled, DiamondHollow, Dot
+ *  @param {Color}  _fillColor
+ *  @param {Color}  _strokeColor
+ *  @returns - {Object} - containing coordinates {x1,x2,y1,y2}
+ */
+Drawing.drawArrow = function(_cntx,_x,_y,_angle,_type,_fillColor,_strokeColor)
+{
+    if (!_type) _type = "Regular";
+    if (!_fillColor || _fillColor === "none") _fillColor = "";
+    var headlen = 15;   // length of head in pixels
+    //var angle = Math.atan2(yMid-y1,xMid-x1);
+    
+    var x1,x2,y1,y2;
+    x1 = _x-headlen*Math.cos(_angle-Math.PI/6);
+    y1 = _y-headlen*Math.sin(_angle-Math.PI/6);
+    x2 = _x-headlen*Math.cos(_angle+Math.PI/6);
+    y2 = _y-headlen*Math.sin(_angle+Math.PI/6);
+    
+    _cntx.beginPath();
+    if (_strokeColor) _cntx.strokeStyle = _strokeColor;
+    switch (_type)
+    {
+        case "Regular":
+            _cntx.moveTo(_x, _y);
+            _cntx.lineTo(x1,y1);
+            _cntx.moveTo(_x, _y);
+            _cntx.lineTo(x2,y2);
+            break;
+        case "Filled":
+            _cntx.moveTo(_x, _y);
+            _cntx.lineTo(x1,y1);
+            _cntx.lineTo(x2,y2);
+            _cntx.lineTo(_x, _y);
+            if (!_fillColor && _strokeColor) _fillColor = _strokeColor;
+            _cntx.fillStyle = _fillColor;
+            _cntx.fill();
+            break;
+        case "Hollow":
+            _cntx.moveTo(_x, _y);
+            _cntx.lineTo(x1,y1);
+            _cntx.lineTo(x2,y2);
+            _cntx.lineTo(_x, _y);
+            break;
+        case "DiamondFilled":
+            var y3 = y1 + y2 - _y; var x3 = x1 + x2 - _x;
+            _cntx.moveTo(_x, _y);
+            _cntx.lineTo(x1,y1);
+            _cntx.lineTo(x3,y3);
+            _cntx.lineTo(x2,y2);
+            _cntx.lineTo(_x, _y);
+            if (!_fillColor && _strokeColor) _fillColor = _strokeColor;
+            _cntx.fillStyle = _fillColor;
+            _cntx.fill();
+            break;
+        case "DiamondHollow": // to be done later
+            var y3 = y1 + y2 - _y; var x3 = x1 + x2 - _x;
+            _cntx.moveTo(_x, _y);
+            _cntx.lineTo(x1,y1);
+            _cntx.lineTo(x3,y3);
+            _cntx.lineTo(x2,y2);
+            _cntx.lineTo(_x, _y);
+            break;
+        case "Dot": // to be done later
+            var cx = _x - 5*Math.cos(_angle), cy = _y - 5*Math.sin(_angle),r = 5;
+            
+            _cntx.arc(cx,cy,r,0,2*Math.PI);
+            if (!_fillColor && _strokeColor) _fillColor = _strokeColor;
+            _cntx.fillStyle = _fillColor;
+            _cntx.fill();
+            break;
+    }
+
+    
+    _cntx.stroke();
+    
+    return {x1:x1,x2:x2,y1:y1,y2:y2};
+}
+
+
+/**
+ * This Function draws rounded corner rectangle into canvas context
+ *  @static
+ *  @param {2D_Context} cntx
+ *  @param {Number} x
+ *  @param {Number} y
+ *  @param {Number} width
+ *  @param {Number} height
+ *  @param {Number} radius
+ *  @param {Color} fill
+ *  @param {Color} stroke
+ *  @returns - nothing
+ */
+Drawing.roundRect = function(ctx, x, y, width, height, radius, fill, stroke) {
+    if (typeof stroke == 'undefined') {
+        stroke = true;
+    }
+    if (typeof radius === 'undefined') {
+        radius = 5;
+    }
+    if (typeof radius === 'number') {
+        radius = {tl: radius, tr: radius, br: radius, bl: radius};
+    } else {
+        var defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
+        for (var side in defaultRadius) {
+            radius[side] = radius[side] || defaultRadius[side];
+        }
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + radius.tl, y);
+    ctx.lineTo(x + width - radius.tr, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+    ctx.lineTo(x + width, y + height - radius.br);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+    ctx.lineTo(x + radius.bl, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+    ctx.lineTo(x, y + radius.tl);
+    ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+    ctx.closePath();
+    if (fill) {
+        ctx.fill();
+    }
+    if (stroke) {
+        ctx.stroke();
+    }
+    
+}
+
+/**
+ * This Function draws ellipse into canvas context
+ *  @static
+ *  @param {2D_Context} _ctx
+ *  @param {Number} _cx center of ellipse
+ *  @param {Number} _cy center of ellipse
+ *  @param {Number} _rx x radius of ellipse
+ *  @param {Number} _ry y radius of ellipse
+ *  @param {Color} _fill
+ *  @param {Color} _stroke
+ *  @returns - nothing
+ */
+Drawing.drawEllipse = function(_ctx, _cx , _cy , _rx , _ry, _fill, _stroke ) {
+    var x = _cx - _rx;
+    var y = _cy - _ry;
+    var w = _rx * 2;
+    var h = _ry * 2;
+    
+    var kappa = .5522848,
+    ox = _rx * kappa, // control point offset horizontal
+    oy = _ry * kappa, // control point offset vertical
+    xe = x + w,           // x-end
+    ye = y + h;           // y-end
+    
+    
+    _ctx.beginPath();
+    _ctx.moveTo(x, _cy);
+    _ctx.bezierCurveTo(x, _cy - oy, _cx - ox, y, _cx, y);
+    _ctx.bezierCurveTo(_cx + ox, y, xe, _cy - oy, xe, _cy);
+    _ctx.bezierCurveTo(xe, _cy + oy, _cx + ox, ye, _cx, ye);
+    _ctx.bezierCurveTo(_cx - ox, ye, x, _cy + oy, x, _cy);
+    //ctx.closePath(); // not used correctly, see comments (use to close off open path)
+    if (_fill) {
+        _ctx.fillStyle = _fill;
+        _ctx.fill();
+    }
+    if (_stroke) {
+        _ctx.strokeStyle = _stroke;
+    }
+    _ctx.stroke();
+}
+
+/**
+ * This Function draws multiple lines into canvas context
+ *  @static
+ *  @param {2D_Context} _ctx
+ *  @param  {Number} _offsetX - offset any X coordinate by this number
+ *  @param  {Number} _offsetY - offset any Y coordinate by this number
+ *  @param {String} _d contains d parameter as used in SVG Path
+ *  @param {Color} _fill
+ *  @param {Color} _stroke
+ *  @returns - nothing
+ */
+Drawing.drawLines = function(_ctx,_offsetX,_offsetY,_d,_fill,_stroke)
+{
+    _ctx.beginPath();
+    
+    if (_stroke) {
+        _ctx.strokeStyle = _stroke;
+    }
+    var words = _d.split(" ");
+    for (var w = 0, wLen = words.length;w < wLen;w++)
+    {
+        var letter = words[w++];
+        switch (letter)
+        {
+            case "M":
+                var x = parseInt(words[w++])+_offsetX, y = parseInt(words[w])+_offsetY;
+                _ctx.moveTo(x,y);
+                break;
+            case "L":
+                var x = parseInt(words[w++])+_offsetX, y = parseInt(words[w])+_offsetY;
+                _ctx.lineTo(x,y);
+                break;
+        }
+        
+    }
+    if (_fill) {
+        _ctx.fillStyle = _fill;
+        _ctx.fill();
+    }
+    _ctx.stroke();
+}
+
+
 // --- base.js ends here
 
 // Global Mouse Events
@@ -2148,6 +2289,9 @@ document.addEventListener("dragstart", function( event ) {
                           event.stopPropagation();
                           }
                           }, false);
+
+
+/**  @namespace MagicBoard **/
 
 /**
  *  This function is used to trap any mouse start event
@@ -2362,11 +2506,12 @@ MagicBoard.getPos = function(e) {
     
     return {x: (x - xOff - MagicBoard.boardPos.x), y:(y-yOff - MagicBoard.boardPos.y)};
 }
-
+ /** @namespace Utility **/
 var Utility = {"Shape":{},"Sheet":{},"SheetBook":{}};
 
 /**
  *  This Utility function is for internal use
+ *  @static
  *  @param {SheetBook} _sheetBook
  */
 Utility.SheetBook.createWorkItems = function(_sheetBook)
@@ -2449,6 +2594,20 @@ Utility.SheetBook.createWorkItems = function(_sheetBook)
         _sheetBook.textEditor.targetShape = null;
     }
     
+    // create mouseover star
+    _sheetBook.star = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    _sheetBook.star.setAttribute("style","display:none;position:absolute;left:0px;top:0px;z-index:10;width:50px;height:21px");
+    _sheetBook.star.innerHTML = "<polygon points=\"10,1 4,20 19,8 1,8 16,20\" style=\"fill:red;stroke:red;stroke-width:1;fill-rule:nonzero;\" />";
+    
+    _sheetBook.star.onclick = function()
+    {
+        var cLine = _sheetBook.star.cLine;
+        if (cLine)
+        {
+            cLine.click();
+        }
+    }
+
     // attach it to the anchor
     Utility.SheetBook.attachWorkItems(_sheetBook);
     /*
@@ -2463,6 +2622,7 @@ Utility.SheetBook.createWorkItems = function(_sheetBook)
 
 /**
  *  This Utility function is for internal use
+ *  @static
  *  @param {SheetBook} _sheetBook
  */
 Utility.SheetBook.attachWorkItems = function(_sheetBook)
@@ -2473,10 +2633,12 @@ Utility.SheetBook.attachWorkItems = function(_sheetBook)
     sheetCanvas.appendChild(_sheetBook.scratchCanvas);
     sheetCanvas.appendChild(_sheetBook.connectCanvas);
     sheetCanvas.appendChild(_sheetBook.hilighter);
+    sheetCanvas.appendChild(_sheetBook.star);
 }
 
 /**
  *  This Utility function is for activating hilighter around a shape
+ *  @static
  *  @param {Object} _dimension
  */
 Utility.SheetBook.activateHilighter = function(_dimension)
@@ -2497,6 +2659,7 @@ Utility.SheetBook.activateHilighter = function(_dimension)
 
 /**
  *  This Utility function is for internal use
+ *  @static
  *  @param {Sheet} _sheet
  */
 Utility.Sheet.Markers = function(_sheet)
@@ -2525,6 +2688,7 @@ Utility.Sheet.Markers = function(_sheet)
 /**
  *  This Utility function is for internal use
  *  to figure out if any a portion of the area is already occupied
+ *  @static
  */
 Utility.Sheet.isGridAvailable = function(startGridSeq,_sheet,_shape)
 {
@@ -2634,6 +2798,7 @@ Utility.Sheet.isGridAvailable = function(startGridSeq,_sheet,_shape)
 
 /**
  *  This Utility function is for internal use
+ *  @static
  */
 Utility.Sheet.LeftAlignedFreeGrid = function(left,top,_sheet)
 {
@@ -2655,6 +2820,7 @@ Utility.Sheet.LeftAlignedFreeGrid = function(left,top,_sheet)
 
 /**
  *  This Utility function to find owner shape any dom in a sheet
+ *  @static
  *  @param {HTMLElement} _dom
  *  @return {ShapeComponent} component or null (if not found)
  */
@@ -2678,6 +2844,7 @@ Utility.Sheet.findOwner = function(_dom)
 }
 /**
  *  This Utility function is for internal use only
+ *  @static
  */
 Utility.Sheet.connectIds = function()
 {
@@ -2715,6 +2882,7 @@ Utility.Sheet.connectIds = function()
 
 /**
  *  This Utility function is for internal use only
+ *  @static
  */
 Utility.Sheet.findShapeById = function(_id)
 {
@@ -2729,6 +2897,7 @@ Utility.Sheet.findShapeById = function(_id)
 /**
  *  This Utility function to apply changes to internal properties of the shape.
  *  e.g. properties such as "Background Color", "Border Width" etc.
+ *  @static
  */
 Utility.Shape.applyProperty = function()
 {
@@ -2762,6 +2931,7 @@ Utility.Shape.applyProperty = function()
 
 /**
  *  This Utility function is for internal use only
+ *  @static
  */
 Utility.addChangeFlag = function()
 {
@@ -2772,6 +2942,7 @@ Utility.addChangeFlag = function()
 /**
  *  This Utility function to show internal properties of the shape for possible modifications.
  *  e.g. properties such as "Background Color", "Border Width" etc.
+ *  @static
  */
 Utility.Shape.showProperty = function()
 {
@@ -2815,6 +2986,7 @@ Utility.Shape.showProperty = function()
  * sample structure for internal use only
  * MagicBoard.sheetBook.alignments[101] = [shape1,shape2]
  * MagicBoard.sheetBook.alignments[103] = [] <-- once there was something here but no more
+ *  @static
  **/
 Utility.Shape.align = function(pos)
 {
@@ -2853,6 +3025,7 @@ Utility.Shape.align = function(pos)
 
 /**
  *  This Utility function for internal use only (mostly for testing)
+ *  @static
  */
 Utility.Sheet.drawCourseGrid = function(_sheet)
 {
@@ -2886,6 +3059,7 @@ Utility.Sheet.drawCourseGrid = function(_sheet)
 /**
  *  This Utility function to block grids to show them occupied for future shape to know
  *  @param {Shape} _shape - Provide shape for which occupied positions to be marked
+ *  @static
  */
 Utility.Shape.blockGrids = function(_shape)
 {
@@ -2935,6 +3109,7 @@ Utility.Shape.blockGrids = function(_shape)
  *  This Utility function to unblock grids that was previously marked by a shape as occupied
  *  @param {Shape} _shape - Provide shape for which occupied positions to be unmarked
  *  @parm {Array} allGrids - Contains array of all the grids
+ *  @static
  */
 Utility.Shape.unblockGrids = function(_shape,allGrids)
 {
@@ -2969,6 +3144,7 @@ Utility.Shape.unblockGrids = function(_shape,allGrids)
  *  @param {Shape} beginShape 
  *  @param {Shape} endShape
  *  @return {Object} connectionInfo - is used to create ConnectorLine
+ *  @static
  */
 Utility.Shape.calculateConnectionPoints = function(beginShape,endShape)
 {
@@ -2997,8 +3173,7 @@ Utility.Shape.calculateConnectionPoints = function(beginShape,endShape)
     //          10  |  11 |  12 |  13  |     14
     
     var orientation = "horiz";
-    
-    
+
     
     if (bEdge.c1.x > eEdge.c2.x) // the endShape is on the left  (1 6,7, 10)
     {
@@ -3132,6 +3307,7 @@ Utility.Shape.calculateConnectionPoints = function(beginShape,endShape)
 
 /**
  *  This Utility function is used to remove connection between two shapes
+ *  @static
  *  @param {Shape} _sheet - Sheet for which the connection to be removed
  *  @param {Shape} _beginShape 
  *  @param {Shape} _endShape
@@ -3154,6 +3330,7 @@ Utility.Sheet.removeConnection = function(_sheet,_beginShape,_endShape)
 
 /**
  *  This Utility function is for internal use to format dimension data that come in px or % format
+ *  @static
  */
 Utility.Shape.dataFormatter = function(_dimensionData,_type,_shape)
 {
@@ -3190,6 +3367,7 @@ Utility.Shape.dataFormatter = function(_dimensionData,_type,_shape)
 
 /**
  *  This Utility function is for internal use
+ *  @static
  */
 Utility.Shape.recalculateDimensions = function(_shape)
 {
@@ -3211,6 +3389,7 @@ Utility.Shape.recalculateDimensions = function(_shape)
 
 /**
  *  This Utility function is for internal use to destroy a HTML Dom
+ *  @static
  */
 Utility.destroyDom = function(_item,_type)
 {
