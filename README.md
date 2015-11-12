@@ -16,7 +16,7 @@ You could do any of the following (plus more, please look at detailed documentat
 
 ## Code Example
 
-MagicBoard.html contains a good example of Diagram editor.
+MagicBoard.html (http://www.binarycodon.com/MagicBoard.html) contains a good example of Diagram editor.
 A sample code is listed below
 
     // Assign any element in your HTML to be anchor to MagicBoard SheetBook.
