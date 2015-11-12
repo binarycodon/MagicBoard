@@ -68,5 +68,5 @@ This project is created by BinaryCodon, Inc. The framework coding is completed b
 
 ## License
 
-Project is available under Affero GNU GPL License. Dual licensing is also available for commercial use. 
+Project is available under GNU Affero GPL License. Dual licensing is also available for commercial use. 
 Please contact support@bianrycodon.com for contribution and Contributor's license.
