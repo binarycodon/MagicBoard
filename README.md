@@ -16,7 +16,7 @@ You could do any of the following (plus more, please look at detailed documentat
 
 ## Code Example
 
-MagicBoard.html contains a good example of Diagram editor.
+MagicBoard.html (http://www.binarycodon.com/MagicBoard.html) contains a good example of Diagram editor.
 A sample code is listed below
 
     // Assign any element in your HTML to be anchor to MagicBoard SheetBook.
@@ -68,5 +68,9 @@ This project is created by BinaryCodon, Inc. The framework coding is completed b
 
 ## License
 
+<<<<<<< HEAD
 Project is available under Affero GNU GPL License. Separate Commercial licensing is also available for commercial use. 
+=======
+Project is available under GNU Affero GPL License. Dual licensing is also available for commercial use. 
+>>>>>>> origin/master
 Please contact support@bianrycodon.com for contribution and Contributor's license.
