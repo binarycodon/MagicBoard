@@ -49,7 +49,7 @@ A sample code is listed below
 
 Rajeev and Venkat were working image handling for a flooring application and needed a good framework to handle variety of shapes. In addition,
 Most SDLC diagrams becomes stale once the underlying components change. Rajeev and Venkat decided to create framework for managing shapes
-that are live during SDLC Lifecycle as well as for various image handling need. This project is far from complete. More comprehensive
+that are always current during SDLC Lifecycle as well as for various image handling need. This project is far from complete. More comprehensive
 features are on its way.
 
 ## Installation
@@ -68,5 +68,5 @@ This project is created by BinaryCodon, Inc. The framework coding is completed b
 
 ## License
 
-Project is available under Affero GNU GPL License. Dual licensing is also available for commercial use. 
+Project is available under Affero GNU GPL License. Separate Commercial licensing is also available for commercial use. 
 Please contact support@bianrycodon.com for contribution and Contributor's license.

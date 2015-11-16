@@ -331,6 +331,16 @@ var Sheet = function(_options)
     {
         return this.canvas;
     }
+/**
+ * This Function renames the sheet
+ *  @param {String} - _newName
+ *  @returns - nothing
+ */
+Sheet.prototype.rename = function(_newName)
+{
+    this.name = _newName;
+    this.options.name = _newName;
+}
 
 /**
  * This Function wipes any drawing, object etc within a Sheet
@@ -1307,7 +1317,9 @@ Shape.prototype.deleteShape = function()
 {
     MagicBoard.sheetBook.currentSheet.removeShape(this);
     var garbage = MagicBoard.sheetBook.garbage;
-    garbage.appendChild(this.dom);
+    // all the svg is inside a group element so get the parent and delete that
+    var gParent = this.dom.parentNode;
+    garbage.appendChild(gParent);
     garbage.innerHTML = "";
     
     // delete all objects
@@ -1731,7 +1743,8 @@ ConnectorLine.prototype.deleteShape = function()
 {
     MagicBoard.sheetBook.currentSheet.removeShape(this);
     var garbage = MagicBoard.sheetBook.garbage;
-    garbage.appendChild(this.dom);
+    var gParent = this.dom.parentNode;
+    garbage.appendChild(gParent);
     garbage.innerHTML = "";
     
     // delete all objects
@@ -3323,6 +3336,7 @@ Utility.Sheet.removeConnection = function(_sheet,_beginShape,_endShape)
         if (cI.beginShape === _beginShape && cI.endShape === _endShape)
         {
             conn.splice(i,1);
+            cI.shape.deleteShape(); // also delete the connection
             return ;
         }
     }
