@@ -639,7 +639,7 @@ Sheet.prototype.removeConnections = function(_shape)
             */
             //var arrowCoord = Drawing.drawArrow(ctx,pos.x2,pos.y2,angle); // arrow for criss cross line
             if (cInfo.shape) {
-                cInfo.shape.deleteShape();
+                cInfo.shape.deleteShape(true); // keep the connection, just delete the shape
                 cInfo.shape = null;
             }
             var cLine = new ConnectorLine(cInfo);
@@ -1358,7 +1358,7 @@ Shape.prototype.selectToggle = function()
     if (MagicBoard.indicators.hilight)
     {
         hilighter.style["visibility"] = "hidden";
-        setTimeout(function(){MagicBoard.indicators.hilight = false;},100);
+        setTimeout(function(){MagicBoard.indicators.hilight = false;},10);
         this.addAlignments();
         
     } else
@@ -1739,13 +1739,64 @@ ConnectorLine.prototype.click = function()
  * This Function overrides deleteShape function from parent Shape Class to delete the connection
  *  @returns - nothing
  */
-ConnectorLine.prototype.deleteShape = function()
+ConnectorLine.prototype.deleteShape = function(keepConnection)
 {
+    var beginShape = this.cInfo.beginShape;
+    var endShape = this.cInfo.endShape;
+    
+
+
+    
     MagicBoard.sheetBook.currentSheet.removeShape(this);
     var garbage = MagicBoard.sheetBook.garbage;
     var gParent = this.dom.parentNode;
     garbage.appendChild(gParent);
     garbage.innerHTML = "";
+    
+    if (!keepConnection)
+    {
+        // remove connection from sheet.connections
+        var conn = this.currentSheet.connections;
+        
+        for (var c = 0,cLen = conn.length; c < cLen;c++)
+        {
+            var cI = conn[c];
+            if (cI.beginShape === beginShape && cI.endShape === endShape)
+            {
+                conn.splice(c,1);
+                break ;
+            }
+        }
+        // null cInfo all objects
+        for (var k in this.cInfo)
+        {
+            if (typeof(this.cInfo[k]) === "object")
+            {
+                this.cInfo[k] = null;
+            }
+        }
+        var connectedTo = beginShape.connectedTo;
+        for (var c = 0, cLen = connectedTo.length;c < cLen ;c++)
+        {
+            var shape = connectedTo[c];
+            if (shape === endShape)
+            {
+                connectedTo.splice(c,1);
+                break;
+            }
+        }
+        var connectedFrom = endShape.connectedFrom;
+        for (var c = 0, cLen = connectedFrom.length;c < cLen ;c++)
+        {
+            var shape = connectedFrom[c];
+            if (shape === beginShape)
+            {
+                connectedFrom.splice(c,1);
+                break;
+            }
+        }
+    }
+
     
     // delete all objects
     for (var k in this)
@@ -1755,6 +1806,10 @@ ConnectorLine.prototype.deleteShape = function()
             this[k] = null;
         }
     }
+    
+
+    
+    // now remove connectedFrom and ConnectedTo from begin and endShape
 }
 
 /**
@@ -1782,7 +1837,7 @@ var ShapeComponent = function(_desc) {
         } else
             this.dom.setAttribute(k,this.param[k]);
     }
-    if (this.innerHTML) this.dom.innerHTML = this.innerHTML;
+    if (this.innerHTML) this.dom.appendChild(document.createTextNode(this.innerHTML)) ;
     this.dom.setAttribute("pointer-events","all");
     this.dom.setAttribute("draggable","false");
     this.dom.setAttribute("transform","translate(1,1)");
@@ -2015,7 +2070,9 @@ ShapeComponent.prototype.applyProperty = function(_name,_type,_value)
         }
     } else if (_type === "dom")
     {
-        this.dom.innerHTML = _value;
+        this.innerHTML = _value;
+        this.dom.innerHTML = "";
+        this.dom.appendChild(document.createTextNode(_value));
     }
 }
 
@@ -2026,7 +2083,8 @@ ShapeComponent.prototype.applyProperty = function(_name,_type,_value)
 ShapeComponent.prototype.updateText = function(_text)
 {
     this.innerHTML = _text;
-    this.dom.innerHTML = _text;
+    this.dom.innerHTML = "";
+    this.dom.appendChild(document.createTextNode(_text));
 }
 
 
@@ -2342,7 +2400,7 @@ MagicBoard.eventStart = function(e)
          */
     }
     MagicBoard.indicators.doubleClick++;
-    setTimeout(function() {MagicBoard.indicators.doubleClick--;},800) ; // turn off doubleclick;
+    setTimeout(function() {MagicBoard.indicators.doubleClick--;},400) ; // turn off doubleclick;
 }
 
 /**
