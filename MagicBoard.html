@@ -30,12 +30,12 @@
    .vertBox {
        height:800px;
    }
-   
+
    .imgIcon {
        float:left;height:35px;
    }
    </style>
-   <script src="js/MagicBoard.min.js" ></script>
+   <script src="js/MagicBoard.js" ></script>
    <!--
    <script src="js/base.js" ></script>
    <script src="js/event.js" ></script>
@@ -59,7 +59,7 @@
        var data = ev.dataTransfer.getData("text");
        var files = dt.files; var fLen = files.length;
        
-       if (fLen)
+       if (!data && fLen)
        {  // this means external files are dragged
            //tempDraw();
            for (var i = 0; i < files.length; i++) {
@@ -101,7 +101,213 @@
        a.click();
        
    }
-       
+
+   var beginShape,endShape;
+   function promptLineType(_endShape)
+   {
+       beginShape = this;
+       endShape = _endShape;
+       $("#lineTypePrompt").show();
+   }
+
+   function changeLineType()
+   {
+       var cLine = this;
+       beginShape = cLine.cInfo.beginShape;
+       endShape = cLine.cInfo.endShape;
+       cLine.deleteShape();
+       $("#lineTypePrompt").show();
+   }
+
+   function applyConnector()
+   {
+       var list = $(".connActive");
+       var connectProp = {"type":"TWOBEND","end":null,"begin":null,"style":"SOLID"};
+       for (var i = 0, iLen = list.length;i < iLen;i++)
+       {
+           var el = list[i];
+           var id = el.getAttribute("id");
+           switch (id)
+           {
+               case "directConnectDiv":
+                       connectProp.type = "DIRECT";
+                   break;
+               case "horizagDiv":
+                   connectProp.type = "ONEBEND";
+                   break;
+               case "zigzagDiv":
+                   connectProp.type = "TWOBEND";
+                   break;
+               case "curvedDiv":
+                   connectProp.type = "CURVED";
+                   break;
+               case "oneFillArrowEndDiv":
+                   connectProp.end = "FILLED";
+                   break;
+               case "oneRoundEndDiv":
+                   connectProp.end = "DOT";
+                   break;
+               case "oneHollowArrowEndDiv":
+                   connectProp.end = "HOLLOW";
+                   break;
+               case "oneArrowEndDiv":
+                   connectProp.end = "REGULAR";
+                   break;
+               case "oneFillArrowBeginDiv":
+                   connectProp.begin = "FILLED";
+               break;
+               case "oneRoundBeginDiv":
+                   connectProp.begin = "DOT";
+                   break;
+               case "oneHollowArrowBeginDiv":
+                   connectProp.begin = "HOLLOW";
+                   break;
+               case "oneArrowBeginDiv":
+                   connectProp.begin = "REGULAR";
+                   break;
+               case "solidDiv":
+                   connectProp.style = "SOLID";
+                   break;
+               case "dottedDiv":
+                   connectProp.style = "DOTTED";
+                   break;
+               case "dashedDiv":
+                   connectProp.style = "DASHED";
+                   break;
+           }
+       }
+       beginShape.connectTo(endShape,connectProp);
+   }
+
+
+   var prevConnectType = "directConnect";
+   function connectShape(_connectType)
+   {
+       if (prevConnectType)
+       {
+           $("#"+prevConnectType+"Div").toggleClass("connActive connInactive");
+           if (prevConnectType === _connectType) {prevConnectType = "";return;}
+       }
+       $("#"+_connectType+"Div").toggleClass("connActive connInactive");
+       prevConnectType = _connectType;
+   }
+
+   var prevArrowEType = "oneFillArrowEnd";
+   function drawArrowE(_arrowType)
+   {
+       if (prevArrowEType)
+       {
+           $("#"+prevArrowEType+"Div").toggleClass("connActive connInactive");
+           if (prevArrowEType === _arrowType) {prevArrowEType = "";return;}
+       }
+
+       $("#"+_arrowType+"Div").toggleClass("connActive connInactive");
+       prevArrowEType = _arrowType;
+   }
+
+   var prevArrowBType = "";
+   function drawArrowB(_arrowType)
+   {
+       if (prevArrowBType)
+       {
+           $("#"+prevArrowBType+"Div").toggleClass("connActive connInactive");
+           if (prevArrowBType === _arrowType) {prevArrowBType = "";return;}
+       }
+
+       $("#"+_arrowType+"Div").toggleClass("connActive connInactive");
+       prevArrowBType = _arrowType;
+   }
+
+   var prevLineType = "solid";
+   function drawLine(_lineType)
+   {
+       if (prevLineType)
+       {
+           $("#"+prevLineType+"Div").toggleClass("connActive connInactive");
+           if (prevLineType === _lineType) {prevLineType = "";return;}
+       }
+
+       $("#"+_lineType+"Div").toggleClass("connActive connInactive");
+       prevLineType = _lineType;
+   }
+   function  showProperty()
+   {
+       if (!MagicBoard.indicators.hilight) {
+           $("#propertyAccordion").hide();
+       } else {
+           // prefill it before show
+           var shape = MagicBoard.indicators.hilight;
+           var props = shape.getProperties();
+           var accordion =  $("#propertyAccordion");
+           var htmlString = "";
+           /*
+            background-color: Object
+            keyName : background-color
+            field: "input"
+            label: "Background Color"
+            propName: "fill"
+            propType: "attribute"
+            values: Array[1]
+            0: Object
+            name: ""
+            type: "color"
+            value: "#1b8d11"
+           */
+           var active = " in", expanded = "true";
+           for (var i = 0,iLen = props.length;i < iLen; i++)
+           {
+               var prop = props[i]; var p = prop.keyName;var pid = p+i;
+                htmlString += '<div class="panel panel-primary" id="'+pid+'Panel" style="border-color:rgb(27,141,17)">' +
+                   '<div class="panel-heading" style="background:rgb(27,141,17);color:white;border-color:rgb(27,141,17)" >' +
+                   '<h4 class="panel-title" >' +
+                   '<a data-toggle="collapse" id="'+p+'" data-parent="#propertyAccordion" href="#'+pid+'List"  class="collapsed" aria-expanded="'+expanded+'">' +
+                   prop.label +
+                   '</a>'+
+                   '</h4>'+
+                   '</div>'+
+                   '<section class="panel-collapse collapse'+active+'" id="'+pid+'List" aria-expanded="'+expanded+'">'+
+                   '<div class="panel-body"><center>'+
+                                getPropertyField(prop,p)+
+                   '</center></div>'+
+                   '</section>'+
+                   '</div>';
+                active = '',expanded = 'false';
+           }
+           accordion.html(htmlString).show();
+       }
+   }
+
+   function getPropertyField(prop,pKey)
+   {
+       var str = "";
+       if (prop.field === "input")
+       {
+           var func = "onchange";
+           if (prop.propType === "text") func = "onblur";
+           str =  '<input '+func+'="applyProperty()" data-label="'+prop.label+'" data-name="'+prop.propName+'" data-type="'+prop.propType+'" data-key="'+pKey+'" type="'+prop.values[0].type+'" value="'+prop.values[0].value+'"/>'
+       } else if (prop.field === "select")
+       {
+           str = '<select onchange="applyProperty()" data-type="'+prop.propType+'" data-key="'+pKey+'">';
+           for (var v = 0,vLen = prop.values.length;v < vLen;v++)
+           {
+               str += '<option value="'+prop.values[v].value+'" >'+prop.values[v].name+'</option>';
+           }
+           str += '</select>';
+       }
+    return str;
+   }
+
+   function applyProperty()
+   {
+       //(_propKey,_propName,_propType,_value,_propLabel)
+       var shape = MagicBoard.indicators.hilight;
+       var target = event.target;
+       var pKey = target.getAttribute("data-key");
+       if (target.nodeName === "INPUT")
+       {
+         shape.applyProperty(pKey,target.getAttribute("data-name"),target.getAttribute("data-type"),target.value,target.getAttribute("data-label"));
+       }
+   }
     function addObject(id,noDraw,pos,cnter)
     {
         var shapeDetail = customShapes[id];
@@ -150,79 +356,85 @@
     components:[r,c,o,t,p]
     }
     */
-   var uml11 = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"rgb(27,141,17)","stroke-width":1,"stroke":"rgb(27,141,17)","border-radius":8}};
+   var uml11 = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"#1b8d11","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
    var txt = {type:"text",dimension:{width:100,height:10,x:30,y:56},param:{"font-size":14,fill:"black"},"innerHTML":"Text"};
    var obj = {type:"text",dimension:{width:100,height:10,x:30,y:60},param:{"font-size":14,fill:"white"},"innerHTML":"Object"};
    var obj1 = {type:"text",dimension:{width:100,height:10,x:30,y:8},param:{"font-size":14,fill:"white"},"innerHTML":":Object"};
    var usecase = {type:"text",dimension:{width:100,height:10,x:28,y:56},param:{"font-size":14,fill:"white"},"innerHTML":"Use Case"};
    var proc = {type:"text",dimension:{width:100,height:10,x:34,y:60},param:{"font-size":14,"fill":"white"},"innerHTML":"Process"};
-   var actor = {type:"text",dimension:{width:100,height:100,x:4,y:90},param:{"font-size":14,"fill":"rgb(27,141,17)"},"innerHTML":"Actor"};
-   var hRail = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"rgb(27,141,17)","border-radius":8}};
+   var actor = {type:"text",dimension:{width:100,height:100,x:4,y:90},param:{"font-size":14,"fill":"#1b8d11"},"innerHTML":"Actor"};
+   var hRail = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
    //
-   var uml120 = {"type":"ellipse","origDim":{"cx":13,"cy":7,"rx":7.5,"ry":7.5},"dimension":{"cx":47,"cy":11.864406779661017,"rx":25,"ry":12.711864406779661},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","pointer-events":"all"}}
+   var uml120 = {"type":"ellipse","origDim":{"cx":13,"cy":7,"rx":7.5,"ry":7.5},"dimension":{"cx":47,"cy":11.864406779661017,"rx":25,"ry":12.711864406779661},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"}}
 
-   var uml121 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":23.728813559322035},{"op":"L","x":50,"y":66.10169491525424},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":0,"y":39.20338983050848},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":100,"y":39.20338983050848},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":0,"y":100},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2},"lines":[{"op":"M","x":15,"y":14},{"op":"L","x":15,"y":39},{"op":"M","x":15,"y":19},{"op":"L","x":0,"y":19},{"op":"M","x":15,"y":19},{"op":"L","x":30,"y":19},{"op":"M","x":15,"y":39},{"op":"L","x":0,"y":59},{"op":"M","x":15,"y":39},{"op":"L","x":30,"y":59}]}
-   var uml130 = {"type":"ellipse","origDim":{"cx":70,"cy":35,"rx":70,"ry":35},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","pointer-events":"all","stroke-width":1}}
+   var uml121 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":23.728813559322035},{"op":"L","x":50,"y":66.10169491525424},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":0,"y":39.20338983050848},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":100,"y":39.20338983050848},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":0,"y":100},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":2},"lines":[{"op":"M","x":15,"y":14},{"op":"L","x":15,"y":39},{"op":"M","x":15,"y":19},{"op":"L","x":0,"y":19},{"op":"M","x":15,"y":19},{"op":"L","x":30,"y":19},{"op":"M","x":15,"y":39},{"op":"L","x":0,"y":59},{"op":"M","x":15,"y":39},{"op":"L","x":30,"y":59}]}
+   var uml130 = {"type":"ellipse","origDim":{"cx":70,"cy":35,"rx":70,"ry":35},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all","stroke-width":1}}
    // flow
-   var flowData = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":16.666666666666668,"y":8.474576271186441},{"op":"L","x":100,"y":0},{"op":"L","x":84.44444444444444,"y":91.52542372881356},{"op":"L","x":0,"y":100},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":15,"y":5},{"op":"L","x":90,"y":0},{"op":"L","x":76,"y":54},{"op":"L","x":0,"y":59},{"op":"Z"}]};
+   var flowData = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":16.666666666666668,"y":8.474576271186441},{"op":"L","x":100,"y":0},{"op":"L","x":84.44444444444444,"y":91.52542372881356},{"op":"L","x":0,"y":100},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":15,"y":5},{"op":"L","x":90,"y":0},{"op":"L","x":76,"y":54},{"op":"L","x":0,"y":59},{"op":"Z"}]};
    
-   var flowDB1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":83.33333333333333},{"op":"L","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":6.666666666666667,"x2":21.666666666666668,"y2":0,"x":50,"y":0},{"op":"C","x1":76.66666666666667,"y1":0,"x2":100,"y2":6.666666666666667,"x":100,"y":16.666666666666668},{"op":"L","x":100,"y":83.33333333333333},{"op":"C","x1":100,"y1":91.66666666666667,"x2":76.66666666666667,"y2":100,"x":50,"y":100},{"op":"C","x1":21.666666666666668,"y1":100,"x2":0,"y2":91.66666666666667,"x":0,"y":83.33333333333333},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":50},{"op":"L","x":0,"y":10},{"op":"C","x1":0,"y1":4,"x2":13,"y2":0,"x":30,"y":0},{"op":"C","x1":46,"y1":0,"x2":60,"y2":4,"x":60,"y":10},{"op":"L","x":60,"y":50},{"op":"C","x1":60,"y1":55,"x2":46,"y2":60,"x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":55,"x":0,"y":50},{"op":"Z"}]}
+   var flowDB1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":83.33333333333333},{"op":"L","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":6.666666666666667,"x2":21.666666666666668,"y2":0,"x":50,"y":0},{"op":"C","x1":76.66666666666667,"y1":0,"x2":100,"y2":6.666666666666667,"x":100,"y":16.666666666666668},{"op":"L","x":100,"y":83.33333333333333},{"op":"C","x1":100,"y1":91.66666666666667,"x2":76.66666666666667,"y2":100,"x":50,"y":100},{"op":"C","x1":21.666666666666668,"y1":100,"x2":0,"y2":91.66666666666667,"x":0,"y":83.33333333333333},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":50},{"op":"L","x":0,"y":10},{"op":"C","x1":0,"y1":4,"x2":13,"y2":0,"x":30,"y":0},{"op":"C","x1":46,"y1":0,"x2":60,"y2":4,"x":60,"y":10},{"op":"L","x":60,"y":50},{"op":"C","x1":60,"y1":55,"x2":46,"y2":60,"x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":55,"x":0,"y":50},{"op":"Z"}]}
    var flowDB2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":25,"x2":21.666666666666668,"y2":33.333333333333336,"x":50,"y":33.333333333333336},{"op":"C","x1":76.66666666666667,"y1":33.333333333333336,"x2":100,"y2":25,"x":100,"y":16.666666666666668}]},"param":{"fill":"none","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":10},{"op":"C","x1":0,"y1":15,"x2":13,"y2":20,"x":30,"y":20},{"op":"C","x1":46,"y1":20,"x2":60,"y2":15,"x":60,"y":10}]};
-   var flowDecision1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]};
+   var flowDecision1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]};
    
 
-var flowDoc1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":5.555555555555555},{"op":"C","x1":0,"y1":2.7777777777777777,"x2":2.0408163265306123,"y2":0,"x":5.1020408163265305,"y":0},{"op":"L","x":93.87755102040816,"y":0},{"op":"C","x1":96.93877551020408,"y1":0,"x2":100,"y2":2.7777777777777777,"x":100,"y":5.555555555555555},{"op":"L","x":100,"y":72.22222222222223},{"op":"C","x1":82.65306122448979,"y1":51.388888888888886,"x2":66.3265306122449,"y2":37.5,"x":50,"y":72.22222222222223},{"op":"C","x1":32.6530612244898,"y1":100,"x2":16.3265306122449,"y2":80.55555555555556,"x":0,"y":62.5},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,144,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":4},{"op":"C","x1":0,"y1":2,"x2":2,"y2":0,"x":5,"y":0},{"op":"L","x":92,"y":0},{"op":"C","x1":95,"y1":0,"x2":98,"y2":2,"x":98,"y":4},{"op":"L","x":98,"y":52},{"op":"C","x1":81,"y1":37,"x2":65,"y2":27,"x":49,"y":52},{"op":"C","x1":32,"y1":72,"x2":16,"y2":58,"x":0,"y":45},{"op":"Z"}]};
+var flowDoc1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":5.555555555555555},{"op":"C","x1":0,"y1":2.7777777777777777,"x2":2.0408163265306123,"y2":0,"x":5.1020408163265305,"y":0},{"op":"L","x":93.87755102040816,"y":0},{"op":"C","x1":96.93877551020408,"y1":0,"x2":100,"y2":2.7777777777777777,"x":100,"y":5.555555555555555},{"op":"L","x":100,"y":72.22222222222223},{"op":"C","x1":82.65306122448979,"y1":51.388888888888886,"x2":66.3265306122449,"y2":37.5,"x":50,"y":72.22222222222223},{"op":"C","x1":32.6530612244898,"y1":100,"x2":16.3265306122449,"y2":80.55555555555556,"x":0,"y":62.5},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"rgb(27,144,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":4},{"op":"C","x1":0,"y1":2,"x2":2,"y2":0,"x":5,"y":0},{"op":"L","x":92,"y":0},{"op":"C","x1":95,"y1":0,"x2":98,"y2":2,"x":98,"y":4},{"op":"L","x":98,"y":52},{"op":"C","x1":81,"y1":37,"x2":65,"y2":27,"x":49,"y":52},{"op":"C","x1":32,"y1":72,"x2":16,"y2":58,"x":0,"y":45},{"op":"Z"}]};
 
-var flowManual1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":41.666666666666664},{"op":"L","x":94,"y":0},{"op":"C","x1":96,"y1":0,"x2":97,"y2":0,"x":98,"y":1.6666666666666667},{"op":"C","x1":99,"y1":3.3333333333333335,"x2":99,"y2":5,"x":99,"y":8.333333333333334},{"op":"L","x":99,"y":91.66666666666667},{"op":"C","x1":100,"y1":95,"x2":98,"y2":98.33333333333333,"x":95,"y":100},{"op":"L","x":5,"y":100},{"op":"C","x1":3,"y1":100,"x2":2,"y2":98.33333333333333,"x":1,"y":96.66666666666667},{"op":"C","x1":0,"y1":95,"x2":0,"y2":93.33333333333333,"x":0,"y":91.66666666666667},{"op":"L","x":0,"y":41.666666666666664},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"}};
+var flowManual1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":41.666666666666664},{"op":"L","x":94,"y":0},{"op":"C","x1":96,"y1":0,"x2":97,"y2":0,"x":98,"y":1.6666666666666667},{"op":"C","x1":99,"y1":3.3333333333333335,"x2":99,"y2":5,"x":99,"y":8.333333333333334},{"op":"L","x":99,"y":91.66666666666667},{"op":"C","x1":100,"y1":95,"x2":98,"y2":98.33333333333333,"x":95,"y":100},{"op":"L","x":5,"y":100},{"op":"C","x1":3,"y1":100,"x2":2,"y2":98.33333333333333,"x":1,"y":96.66666666666667},{"op":"C","x1":0,"y1":95,"x2":0,"y2":93.33333333333333,"x":0,"y":91.66666666666667},{"op":"L","x":0,"y":41.666666666666664},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"}};
 
-var flowIstorage0 = {"type":"rect","origDim":{"x":0,"y":0,"width":70,"height":70,"rx":5,"ry":5},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":7.142857142857143,"ry":7.142857142857143},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","pointer-events":"all"},"lines":[]};
+var flowIstorage0 = {"type":"rect","origDim":{"x":0,"y":0,"width":70,"height":70,"rx":5,"ry":5},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":7.142857142857143,"ry":7.142857142857143},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","pointer-events":"all"},"lines":[]};
 var flowIstorage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":21.428571428571427},{"op":"L","x":100,"y":21.428571428571427}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":15},{"op":"L","x":70,"y":15}]};
 var flowIstorage2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":21.428571428571427,"y":0},{"op":"L","x":21.428571428571427,"y":100}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":15,"y":0},{"op":"L","x":15,"y":70}]}
 
-var flowSeqData0  = {"type":"ellipse","origDim":{"cx":50,"cy":50,"rx":50,"ry":50},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","pointer-events":"all"},"lines":[]};
-var flowSeqData1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]};
-var flowPreDef0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":60,"rx":4.03,"ry":4.03},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":4.03,"ry":6.716666666666667},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"1","pointer-events":"all"},"lines":[]};
+var flowSeqData0  = {"type":"ellipse","origDim":{"cx":50,"cy":50,"rx":50,"ry":50},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","pointer-events":"all"},"lines":[]};
+var flowSeqData1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]};
+var flowPreDef0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":60,"rx":4.03,"ry":4.03},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":4.03,"ry":6.716666666666667},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"1","pointer-events":"all"},"lines":[]};
 var flowPreDef1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":14,"y":0},{"op":"L","x":14,"y":100}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":14,"y":0},{"op":"L","x":14,"y":60}]};
 var flowPreDef2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":85,"y":0},{"op":"L","x":85,"y":100}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":85,"y":0},{"op":"L","x":85,"y":60}]}
 
-var flowStored0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1.6666666666666667,"x":99,"y":3.3333333333333335},{"op":"C","x1":95,"y1":10,"x2":92,"y2":28.333333333333332,"x":92,"y":50},{"op":"C","x1":92,"y1":70,"x2":95,"y2":88.33333333333333,"x":99,"y":96.66666666666667},{"op":"C","x1":100,"y1":96.66666666666667,"x2":100,"y2":98.33333333333333,"x":99,"y":100},{"op":"L","x":10,"y":100},{"op":"C","x1":4,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1,"x":99,"y":2},{"op":"C","x1":95,"y1":6,"x2":92,"y2":17,"x":92,"y":30},{"op":"C","x1":92,"y1":42,"x2":95,"y2":53,"x":99,"y":58},{"op":"C","x1":100,"y1":58,"x2":100,"y2":59,"x":99,"y":60},{"op":"L","x":10,"y":60},{"op":"C","x1":4,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]}
+var flowStored0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1.6666666666666667,"x":99,"y":3.3333333333333335},{"op":"C","x1":95,"y1":10,"x2":92,"y2":28.333333333333332,"x":92,"y":50},{"op":"C","x1":92,"y1":70,"x2":95,"y2":88.33333333333333,"x":99,"y":96.66666666666667},{"op":"C","x1":100,"y1":96.66666666666667,"x2":100,"y2":98.33333333333333,"x":99,"y":100},{"op":"L","x":10,"y":100},{"op":"C","x1":4,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1,"x":99,"y":2},{"op":"C","x1":95,"y1":6,"x2":92,"y2":17,"x":92,"y":30},{"op":"C","x1":92,"y1":42,"x2":95,"y2":53,"x":99,"y":58},{"op":"C","x1":100,"y1":58,"x2":100,"y2":59,"x":99,"y":60},{"op":"L","x":10,"y":60},{"op":"C","x1":4,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]}
 
-var flowStart0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":21.666666666666668,"x":100,"y":50},{"op":"C","x1":100,"y1":76.66666666666667,"x2":86,"y2":100,"x":69,"y":100},{"op":"L","x":30,"y":100},{"op":"C","x1":13,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":13,"x":100,"y":30},{"op":"C","x1":100,"y1":46,"x2":86,"y2":60,"x":69,"y":60},{"op":"L","x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]}
+var flowStart0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":21.666666666666668,"x":100,"y":50},{"op":"C","x1":100,"y1":76.66666666666667,"x2":86,"y2":100,"x":69,"y":100},{"op":"L","x":30,"y":100},{"op":"C","x1":13,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":13,"x":100,"y":30},{"op":"C","x1":100,"y1":46,"x2":86,"y2":60,"x":69,"y":60},{"op":"L","x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]}
 
 
-var laneV1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":4.55531453362256},{"op":"L","x":0,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":4.55531453362256},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":21},{"op":"L","x":0,"y":1},{"op":"L","x":120,"y":1},{"op":"L","x":120,"y":21},{"op":"Z"}]}
+var laneV1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":4.55531453362256},{"op":"L","x":0,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":4.55531453362256},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":21},{"op":"L","x":0,"y":1},{"op":"L","x":120,"y":1},{"op":"L","x":120,"y":21},{"op":"Z"}]}
 
 var laneV2 = {"type":"text","origDim":{"x":34,"y":18},"dimension":{"x":27.419354838709676,"y":3.9045553145336225},"param":{"fill":"white"},"lines":[],innerHTML:"Lane"}
 
-var laneV3 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":100,"y":100},{"op":"L","x":100,"y":0}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":"2","pointer-events":"none"},"lines":[{"op":"M","x":134,"y":461},{"op":"L","x":134,"y":0}]}
+var laneV3 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":100,"y":100},{"op":"L","x":100,"y":0}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"2","pointer-events":"none"},"lines":[{"op":"M","x":134,"y":461},{"op":"L","x":134,"y":0}]}
 var ie1 = {"type":"image","origDim":{x:0,y:0,width:484,height:456},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/ie.png"}
 var server1 = {"type":"image","origDim":{x:0,y:0,width:369,height:512},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/server.png"}
 var firewall1 = {"type":"image","origDim":{x:0,y:0,width:370,height:250},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/firewall.png"}
 
 // uml frames
 /*
-var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]}
+var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]}
 
-var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]}
+var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]}
 
 */
-var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":"1","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]}
+var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"1","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]
+,"properties":{ "background-color":"Frame Color","line-color":"Frame Border Color"}
+}
 
-var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":"1"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]}
+var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"1"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]
+    ,"properties":{"line-color":"Border Color"}
+}
 //
-var umlLifeLine0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":40},"dimension":{"x":0,"y":0,"width":100,"height":13.333333333333334},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","pointer-events":"all"},"lines":[]}
+var umlLifeLine0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":40},"dimension":{"x":0,"y":0,"width":100,"height":13.333333333333334},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
 
-var umlLifeLine1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":13.333333333333334},{"op":"L","x":50,"y":100}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-dasharray":"3 3"},"lines":[{"op":"M","x":50,"y":40},{"op":"L","x":50,"y":300}]}
+var umlLifeLine1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":13.333333333333334},{"op":"L","x":50,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-dasharray":"3 3"},"lines":[{"op":"M","x":50,"y":40},{"op":"L","x":50,"y":300}]}
 
 //
-var umlActivity0 = {"type":"rect","origDim":{"x":0,"y":0,"width":10,"height":80},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","pointer-events":"all"},"lines":[]}
+var umlActivity0 = {"type":"rect","origDim":{"x":0,"y":0,"width":10,"height":80},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
 // UML Class
 
-var umlClass0 = {"type":"rect","origDim":{"x":0,"y":0,"width":160,"height":90},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"rgb(27,141,17)","stroke":"white","pointer-events":"all"},"lines":[]}
+var umlClass0 = {"type":"rect","origDim":{"x":0,"y":0,"width":160,"height":90},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"white","pointer-events":"all"},"lines":[]}
 
-var umlClassText = {type:"text",dimension:{width:100,height:10,x:30,y:18},param:{"font-size":12,fill:"white"},"innerHTML":"ClassName"};
+var umlClassText = {type:"text",dimension:{width:100,height:10,x:30,y:18},param:{"font-size":12,fill:"white"},"innerHTML":"ClassName"
+    ,"properties":{ "text":"Text - Class","text-color":"Text - Class color"}
+};
 
-var umlClass1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28.88888888888889},{"op":"L","x":0,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":28.88888888888889},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"white","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":26},{"op":"L","x":0,"y":0},{"op":"L","x":160,"y":0},{"op":"L","x":160,"y":26},{"op":"Z"}]}
+var umlClass1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28.88888888888889},{"op":"L","x":0,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":28.88888888888889},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"white","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":26},{"op":"L","x":0,"y":0},{"op":"L","x":160,"y":0},{"op":"L","x":160,"y":26},{"op":"Z"}]}
 
 var umlFieldText = {type:"text",dimension:{width:100,height:10,x:14,y:52},param:{"font-size":12,fill:"white"},"innerHTML":"+field:type"};
 
@@ -230,9 +442,9 @@ var umlClass2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y
 
 var umlMethodText = {type:"text",dimension:{width:100,height:10,x:14,y:84},param:{"font-size":12,fill:"white"},"innerHTML":"+method(type):type"};
 
-var umlPackage0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":57.142857142857146,"y":0},{"op":"L","x":57.142857142857146,"y":28},{"op":"L","x":100,"y":28},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":28},{"op":"Z"}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":40,"y":0},{"op":"L","x":40,"y":14},{"op":"L","x":70,"y":14},{"op":"L","x":70,"y":50},{"op":"L","x":0,"y":50},{"op":"L","x":0,"y":14},{"op":"Z"}]}
+var umlPackage0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":57.142857142857146,"y":0},{"op":"L","x":57.142857142857146,"y":28},{"op":"L","x":100,"y":28},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":28},{"op":"Z"}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":40,"y":0},{"op":"L","x":40,"y":14},{"op":"L","x":70,"y":14},{"op":"L","x":70,"y":50},{"op":"L","x":0,"y":50},{"op":"L","x":0,"y":14},{"op":"Z"}]}
 
-var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28},{"op":"L","x":57.142857142857146,"y":28}]},"param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":14},{"op":"L","x":40,"y":14}]}
+var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28},{"op":"L","x":57.142857142857146,"y":28}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":14},{"op":"L","x":40,"y":14}]}
 
 
 
@@ -298,10 +510,21 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
           "ie":{"frame":{"width":60,"height":57,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[ie1]},
           "server":{"frame":{"width":102,"height":74,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[server1]},
           "firewall":{"frame":{"width":92,"height":83,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[firewall1]},
-          "umlFrame":{"frame":{"width":300,"height":200,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlFrame0,umlFrame1]},
+          "umlFrame":{"frame":{"width":300,"height":200,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlFrame0,umlFrame1]
+              ,events : {
+              "click":{"override":null,"post":"showProperty","pre":null},
+              "hover":{"override":null,"post":null,"pre":null},
+              "doubleClick":{"override":null,"post":null,"pre":null}}
+          },
           "umlLifeLine":{"frame":{"width":100,"height":300,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlLifeLine0,obj1,umlLifeLine1]},
           "umlActivity":{"frame":{"width":10,"height":80,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlActivity0]},
-          "umlClass":{"frame":{"width":160,"height":90,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlClass0,umlClass1,umlClassText,umlFieldText,umlClass2,umlMethodText]},
+          "umlClass":{"frame":{"width":160,"height":90,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlClass0,umlClass1,umlClassText,umlFieldText,umlClass2,umlMethodText]
+              ,events : {
+                  "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
+                  "click":{"override":null,"post":"showProperty","pre":null},
+                  "hover":{"override":null,"post":null,"pre":null},
+                  "doubleClick":{"override":null,"post":null,"pre":null}}
+          },
           umlPackage:{"frame":{"width":70,"height":50,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlPackage0,umlPackage1]},
           mText:{"frame":{"width":70,"height":20,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[txt]}
    }
@@ -345,7 +568,8 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
         $("#"+id+"Tab").addClass("active");
         // toggle active class for sheet tab and accordion tab
    }
-   
+
+
    function promptSheetName()
    {
        $("#sheetNamePrompt").show();
@@ -411,8 +635,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
        a.click();
        alert("Sheet - "+MagicBoard.sheetBook.currentSheet.name+" saved ");
    }
-   
-   
+
   </script>
   </head>
   <body>
@@ -468,14 +691,132 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                       -->
                   </ul>
                   <!--  tab menu ends -->
-                  <section id="paper" draggable="false" ondrop="drop(event)" ondragover="allowDrop(event)" style="position:absolute;height:800px;width:1300px;">
+                  <section id="paper" draggable="false" ondrop="drop(event)" ondragover="allowDrop(event)" style="position:absolute;-ms-user-select:none;-webkit-user-select:none;;height:800px;width:1300px;">
                   </section>
               </div>
               <!--  sheets end here --->
           </div>
       </section>
-      
-      // sheet prompt
+
+      <!-- Line Type prompt -->
+
+      <div style="position:absolute;left:35%;top:70px;width:262px;height:auto;z-index:100;display:none;background: white;" id="lineTypePrompt">
+          <section class="panel panel-default"  style="width:100%;position:relative;">
+              <button type="button" class="btn btn-primary" style="margin-left:20%;margin-top:10px;margin-bottom:10px;" onclick="applyConnector();$('#lineTypePrompt').hide();" >Apply</button>
+                  <button type="button" class="btn btn-warning" style="margin-left:5%;margin-top:10px;margin-bottom:10px;" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">Cancel</button>
+            </section>
+              <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+            <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
+              <h4 class="panel-title">Connector Style</h4>
+            </div>
+             <div>
+                 <div class="panel-body">
+                     <div  id="directConnectDiv" style="width:50px;height:50px;float:left;" class="connActive" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                         <div  style="font-size:7px;text-align:center">Direct</div>
+                         <img src="image/directConnect.png" id="directConnect"  onclick="connectShape('directConnect')" class="imgIcon">
+                     </div>
+                     <div id="horizagDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="One Bend Line">
+                         <div style="font-size:7px;text-align:center">One Bend</div>
+                         <img src="image/horizag.png" id="horizag"  onclick="connectShape('horizag')" class="imgIcon">
+                     </div>
+                     <div id="zigZagDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                         <div style="font-size:7px;text-align:center">Two Bend</div>
+                         <img src="image/zigZag.png" id="zigZag"  onclick="connectShape('zigZag')" class="imgIcon">
+                     </div>
+                     <div id="curvedDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                         <div style="font-size:7px;text-align:center">Curved</div>
+                         <img src="image/curved.png" id="curved"  onclick="connectShape('curved')" class="imgIcon">
+                     </div>
+                 </div>
+             </div>
+
+         </section>
+          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
+                  <h4 class="panel-title">End Arrow Style</h4>
+              </div>
+              <div>
+                  <div class="panel-body">
+                      <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                          <div style="font-size:7px;text-align:center">Filled</div>
+                          <img src="image/oneFillArrow.png" id="oneFillArrowEnd"  onclick="drawArrowE('oneFillArrowEnd')" class="imgIcon">
+                      </div>
+                      <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                          <div style="font-size:7px;text-align:center">Round Head</div>
+                          <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowE('oneRoundEnd')" class="imgIcon">
+                      </div>
+                      <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                          <div style="font-size:7px;text-align:center">Hollow</div>
+                          <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowE('oneHollowArrowEnd')" class="imgIcon">
+                      </div>
+                      <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                          <div style="font-size:7px;text-align:center">Arrow</div>
+                          <img src="image/oneArrow.png" id="zigZag"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
+                      </div>
+
+                  </div>
+              </div>
+          </section>
+          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
+                  <h4 class="panel-title">Begin Arrow Style</h4>
+              </div>
+              <div>
+                  <div class="panel-body">
+                      <div  id="oneFillArrowBeginDiv" class="connInactive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                          <div style="font-size:7px;text-align:center">Filled</div>
+                          <img src="image/oneFillArrow.png" id="oneFillArrow"  onclick="drawArrowB('oneFillArrowBegin')" class="imgIcon">
+                      </div>
+                      <div id="oneRoundBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                          <div style="font-size:7px;text-align:center">Round Head</div>
+                          <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowB('oneRoundBegin')" class="imgIcon">
+                      </div>
+                      <div  id="oneHollowArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                          <div style="font-size:7px;text-align:center">Hollow</div>
+                          <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowB('oneHollowArrowBegin')" class="imgIcon">
+                      </div>
+                      <div id="oneArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                          <div style="font-size:7px;text-align:center">Arrow</div>
+                          <img src="image/oneArrow.png" id="zigZag"  onclick="drawArrowB('oneArrowBegin')" class="imgIcon">
+                      </div>
+
+                  </div>
+              </div>
+          </section>
+          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
+                  <h4 class="panel-title">Line Style</h4>
+              </div>
+              <div>
+                  <div class="panel-body">
+                      <div  id="solidDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Solid Line">
+                          <div style="font-size:7px;text-align:center">Solid</div>
+                          <img src="image/solid.png" id="solid"  onclick="drawLine('solid')" class="imgIcon">
+                      </div>
+                      <div  id="dottedDiv" class="connInactive"  style="margin-left:10px;width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Dotted Line">
+                          <div style="font-size:7px;text-align:center">Dotted</div>
+                          <img src="image/dotted.png" id="dotted"  onclick="drawLine('dotted')" class="imgIcon">
+                      </div>
+                      <div  id="dashedDiv" class="connInactive"  style="margin-left:10px;width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Dashed Line">
+                          <div style="font-size:7px;text-align:center">Dashed</div>
+                          <img src="image/dashed.png" id="dashed"  onclick="drawLine('dashed')" class="imgIcon">
+                      </div>
+                  </div>
+              </div>
+          </section>
+    </div>
+      <div style="position:absolute;left:35%;top:35%;width:300px;height:150px;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white" id="lineTypePrompt">
+          <section class="row">
+              <div class="form-group">
+                  <label for="sheetName">Pick Connector:</label>
+                  <input type="text" class="form-control" id="sheetName">
+                  <br>
+                  <button type="button" class="btn btn-warning" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">Cancel</button>
+              </div>
+          </section>
+      </div>
+      <!-- Line Type prompt ends -->
+      <!-- sheet prompt -->
       <div style="position:absolute;left:35%;top:35%;width:300px;height:150px;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white" id="sheetNamePrompt">
           <section class="row">
               <div class="form-group">
@@ -487,8 +828,8 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
               </div>
           </section>
       </div>
-      // sheet prompt ends
-      // background change
+      <!-- sheet prompt ends --
+       background change -->
       <div style="position:absolute;left:35%;top:35%;width:300px;height:auto;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white;color:rgb(27,141,17)" id="stylePrompt">
           
               <div class="form-group">
@@ -516,6 +857,11 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                  </section>
             </div>
           
+      </div>
+
+
+      <div class="panel-group" id="propertyAccordion" style="display:none;position:absolute;left: 80%;top:130px;width:16%;z-index: 100;" >
+
       </div>
       
   </body>
@@ -562,7 +908,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
           for (var c = 0; c < cLen;c++)
           {
               var category = section.categories[c];
-              tabSection += "<section class='panel panel-default'><div class='panel-heading'>";
+              tabSection += "<section class='panel panel-default'><div class='panel-heading' style='background:rgb(27,141,17);color:white;'>";
               // onclick="activateSheet('Layer')" <-- to be done later
               tabSection += "<h4 class='panel-title'><a data-toggle=\"collapse\"  id='"+category.id+"Ref' data-parent='#"+section.id+"Accordion' href='#"+category.id+"List'>"+category.title+"</a></h4>";
               tabSection += "</div><div class='panel-collapse collapse' id='"+category.id+"List'><div class='panel-body'>";
@@ -632,7 +978,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                },
                {title:"Deployment Diagram",id:"Deployment",
                list:[
-                     {"id":"laneV","icon":"image/uml1.png","description":"Vertical Lane"},
+                     {"id":"laneV","icon":"image/swimLaneV.png","description":"Vertical Lane"},
                      {"id":"ie","icon":"image/ie.png","description":"Browser"},
                      {"id":"server","icon":"image/server.png","description":"Server"},
                      {"id":"firewall","icon":"image/firewall.png","description":"Firewall"}

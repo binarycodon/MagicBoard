@@ -18,6 +18,14 @@
     border:1px solid rgb(27,141,17);
 }
 
+.connActive {
+    border:1px solid rgb(27,141,17);
+}
+
+.connInactive {
+    border:1px dotted silver;
+}
+
 .stretcher {
     position:absolute;
     width:20px;
@@ -30,6 +38,15 @@
     height:10px;
     margin:5px;
     border:1px solid lightblue;
+}
+
+.corner {
+    background-color:cornflowerblue;
+    width:10px;
+    height:10px;
+    margin:5px;
+    border-radius: 5px;
+    border:1px solid black;
 }
 
 .clickPrompt {
