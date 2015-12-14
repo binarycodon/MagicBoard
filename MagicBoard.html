@@ -600,6 +600,25 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
         // toggle active class for sheet tab and accordion tab
    }
 
+    function changeTheme()
+    {
+        if (MagicBoard.theme.shapeColor) $("#shapeBackgroundColor").val(MagicBoard.theme.shapeColor);
+        if (MagicBoard.theme.borderColor) $("#shapeBorderColor").val(MagicBoard.theme.borderColor);
+        if (MagicBoard.theme.lineColor) $("#connectorLineColor").val(MagicBoard.theme.lineColor);
+        if (MagicBoard.theme.arrowFillColor) $("#arrowFillColor").val(MagicBoard.theme.arrowFillColor);
+        $("#stylePrompt").show();
+    }
+   
+   function applyTheme()
+   {
+       var shapeColor = $("#shapeBackgroundColor").val();
+       var borderColor = $("#shapeBorderColor").val();
+       var lineColor = $("#connectorLineColor").val();
+       var arrowFillColor = $("#arrowFillColor").val();
+       
+       MagicBoard.sheetBook.currentSheet.changeThemeColor(null,shapeColor,arrowFillColor,borderColor,lineColor);
+       $("#stylePrompt").hide();
+   }
 
    function promptSheetName()
    {
@@ -609,8 +628,8 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
    
    function addNewSheet()
    {
-       var name = $("#sheetName").val();
-       console.log(name);
+       var name = $("#newSheetName").val();
+
        $("#sheetNamePrompt").hide();
        //
        var currentSheetName = MagicBoard.sheetBook.currentSheet.name;
@@ -630,8 +649,9 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
        
        var newHTML = "<li  onclick=\"activateSheet('"+name+"')\" id=\""+name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+name+"<span class=\"caret\"></span></a>" +
        "<ul class=\"dropdown-menu\">" +
-       "<li><a href=\"#\" onclick=\"downloadSheetImage('png')\">PNG Image</a></li>"+
-       "<li><a href=\"#\" onclick=\"downloadSheetImage('svg')\">SVG Image</a></li>"+
+       "<li><a href=\"#\" onclick=\"downloadSheetImage('png')\">Download PNG</a></li>"+
+       "<li><a href=\"#\" onclick=\"downloadSheetImage('svg')\">Download SVG</a></li>"+
+       "<li><a href=\"#\" onclick=\"changeTheme()\">Change Theme</a></li>"+
        "<li><a href=\"#\" onclick=\"saveSheet()\">Save</a></li>" +
        "<li><a href=\"#\" onclick=\"deleteSheet()\">Delete</a></li>" +
        "</ul> </li>" ;
@@ -712,6 +732,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                           <ul class="dropdown-menu" id="sheetMenu">
                               <li><a href="#" onclick="downloadSheetImage('png')">Download PNG</a></li>
                               <li><a href="#" onclick="downloadSheetImage('svg')">Download SVG</a></li>
+                              <li><a href="#" onclick="changeTheme()">Change Theme</a></li>
                               <li><a href="#" onclick="renameSheet()">Rename</a></li>
                               <li><a href="#" onclick="saveSheet()">Save</a></li>
                               <li><a href="#" onclick="deleteSheet()">Delete</a></li>
@@ -871,7 +892,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
           <section class="row">
               <div class="form-group">
                   <label for="sheetName">Sheet Name:</label>
-                  <input type="text" class="form-control" id="sheetName">
+                  <input type="text" class="form-control" id="newSheetName">
                       <br>
                   <button type="button" class="btn btn-success" onclick="addNewSheet()">Add</button>
                   <button type="button" class="btn btn-warning" onclick="$('#sheetNamePrompt').hide();">Cancel</button>
@@ -880,29 +901,31 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
       </div>
       <!-- sheet prompt ends --
        background change -->
-      <div style="position:absolute;left:35%;top:35%;width:300px;height:auto;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white;color:rgb(27,141,17)" id="stylePrompt">
+      <div style="position:absolute;left:35%;top:35%;width:300px;height:auto;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white;color:gray" id="stylePrompt">
           
               <div class="form-group">
                   <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="backgroundColor">Background Color:</label></section>
-                      <section class="col-sm-4"><input type="color" class="form-control" id="backgroundColor" value="#1b8d11"></section>
+                      <section class="col-sm-8"><label for="backgroundColor">Shape Background Color:</label></section>
+                      <section class="col-sm-4"><input type="color" class="form-control" id="shapeBackgroundColor" value="#1b8d11"></section>
                   </section>
+                  
                   <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="opacity">Opacity:</label></section>
-                      <section class="col-sm-4"><input type="text" class="form-control" id="opacity" value="1.0"></section>
+                      <section class="col-sm-8"><label for="strokeColor">Shape Border Color:</label></section>
+                      <section class="col-sm-4"><input type="color" class="form-control" id="shapeBorderColor" value="#1b8d11"></section>
+                  </section>
+                  
+                  <section class="row" style="height:40px">
+                      <section class="col-sm-8"><label for="backgroundColor">Arrow Fille Color:</label></section>
+                      <section class="col-sm-4"><input type="color" class="form-control" id="arrowFillColor" value="#1b8d11"></section>
                   </section>
 
                   <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="stroke">Line Size:</label></section>
-                      <section class="col-sm-4"><input type="text" class="form-control" id="stroke" value="1"></section>
-                  </section>
-                  <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="strokeColor">Line Color:</label></section>
-                      <section class="col-sm-4"><input type="color" class="form-control" id="strokeColor" value="#1b8d11"></section>
+                      <section class="col-sm-8"><label for="strokeColor">Connector Line Color:</label></section>
+                      <section class="col-sm-4"><input type="color" class="form-control" id="connectorLineColor" value="#1b8d11"></section>
                   </section>
 
                   <section class="row">
-                      <button type="button" class="btn btn-success" onclick="addNewSheet()">Apply</button>
+                      <button type="button" class="btn btn-success" onclick="applyTheme()">Apply</button>
                       <button type="button" class="btn btn-warning" onclick="$('#stylePrompt').hide();">Cancel</button>
                  </section>
             </div>

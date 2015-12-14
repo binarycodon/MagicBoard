@@ -10,7 +10,7 @@ var inheritsFrom = function (child, parent) {
 };
 
 
-var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0}};
+var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"theme":{"sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"white","lineColor":"#1b8d11","textColor":"white"}};
 
 /*
  "background-color"
@@ -28,8 +28,8 @@ var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],
  */
 
 MagicBoard.properties = {
-    "background-color":{"propType":"attribute","propName":"fill","label":"Background Color","field":"input","values":[{"name":"","value":"#1b8d11","type":"color"}]},
-    "border-color":{"propName":"stroke","propType":"attribute","label":"Border Color","field":"input","values":[{"name":"","value":"#1b8d11","type":"color"}]},
+    "background-color":{"propType":"attribute","propName":"fill","label":"Background Color","field":"input","values":[{"name":"","value":MagicBoard.theme.shapeColor,"type":"color"}]},
+    "border-color":{"propName":"stroke","propType":"attribute","label":"Border Color","field":"input","values":[{"name":"","value":MagicBoard.theme.shapeColor,"type":"color"}]},
     "border-width":{"propName":"stroke-width","propType":"attribute","label":"Border Width","field":"input","values":[{"name":"","value":"1","type":"text"}]},
     "border-style":{"propName":"stroke-dasharray","propType":"attribute","label":"Border Style","field":"select","values":[{"name":"Dash","value":"5,5","type":""},{"name":"Solid","value":"","type":""},{"name":"Dotted","value":"1,1","type":""}]},
     "text":{"propName":"innerHTML","propType":"dom","label":"Text","field":"input","values":[{"name":"","value":"","type":"text"}]},
@@ -38,7 +38,7 @@ MagicBoard.properties = {
     "font-weight":{"propName":"font-weight","propType":"attribute","label":"Font Weight","field":"select",values:[{"name":"Regular","value":"regular"},{"name":"Bold","value":"bold"},{"name":"Italic","value":"italic"}]},
     "text-content":{"propName":"innerHTML","propType":"dom","label":"Text","field":"input","values":[{value:""}]},
     "line-type":{"propName":"","propType":"function","field":"select","label":"Line Type",values:[{"name":"Straight",value:"straight"},{"name":"Zig Zag",value:"zig-zag"},{"name":"Brezier Curve",value:"brezier"},{"name":"Quadratic Curve",value:"quadratic"}]},
-    "line-color":{"propName":"stroke","propType":"attribute","label":"Line Color","field":"input","values":[{"name":"","value":"#1b8d11","type":"color"}]},
+    "line-color":{"propName":"stroke","propType":"attribute","label":"Line Color","field":"input","values":[{"name":"","value":MagicBoard.theme.shapeColor,"type":"color"}]},
     "line-width":{"propName":"stroke-width","propType":"attribute","label":"Line Width","field":"input","values":[{"name":"","value":"1","type":"text"}]},
     "line-style":{"propName":"stroke-dasharray","propType":"attribute","label":"Line Style","field":"select","values":[{"name":"Solid","value":"","type":""},{"name":"Dash","value":"5,5","type":""},{"name":"Dotted","value":"1,1","type":""}]},
     "end-marker":{"propName":"marker-end","propType":"attribute","label":"End Marker","field":"select","values":[{"name":"Filled Arrow",value:"url(#fillArrowE)"},{"name":"Hollow Arrow",value:"url(#hollowArrowE)"},{"name":"Regular Arrow",value:"url(#lineArrowE)"},{"name":"Cicle",value:"url(#dot)"},{"name":"Hollow Diamond",value:"url(#hollowDiamond)"},{"name":"Filled Diamond",value:"url(#fillDiamond)"},{"name":"No Arrow",value:""}]},
@@ -575,6 +575,30 @@ Sheet.prototype.save = function()
 }
 
 /**
+ * This function changes theme color of the sheet objects
+  * @param {Color} _backgroundColor
+  * @param {Color} _shapeColor
+  * @param {Color} _arrowFillColor
+  * @param {Color} _borderColor
+  * @param {Color} _lineColor
+ *
+ */
+Sheet.prototype.changeThemeColor = function(_backgroundColor,_shapeColor,_arrowFillColor,_borderColor,_lineColor)
+{
+    if (_backgroundColor) MagicBoard.theme.backgroundColor = _backgroundColor;
+    if (_shapeColor) MagicBoard.theme.shapeColor = _shapeColor;
+    if (_arrowFillColor) MagicBoard.theme.arrowFillColor = _arrowFillColor;
+    if (_borderColor) MagicBoard.theme.borderColor = _borderColor;
+    if (_lineColor) MagicBoard.theme.lineColor = _lineColor;
+    
+    for (var s = 0,sLen = this.shapes.length; s < sLen;s++)
+    {
+        var shape = this.shapes[s];
+        shape.changeThemeColor(_shapeColor,_borderColor,_lineColor);
+    }
+}
+
+/**
  * This Function removes any connection to the shape. The connection can be incoming or outgoing
  *  @param {Shape} _shape
  *  @returns - nothing
@@ -636,7 +660,7 @@ Sheet.prototype.drawConnections = function(_context)
      }
      garbage.innerHTML = "";
      */
-    //ctx.strokeStyle = "rgb(27,141,17)";
+    //ctx.strokeStyle = MagicBoard.theme.shapeColor;
     //ctx.lineWidth = 2;
     //ctx.setLineDash([5, 0]);
 
@@ -1335,7 +1359,7 @@ Shape.prototype.getDimension = function(dim)
 
 Shape.prototype.applyProperty = function(_propKey,_propName,_propType,_value,_propLabel)
 {
-    //{"attribute":"fill","label":"Background Color","field":"input","values":[{"name":"","value":"#1b8d11","type":"color"}]}
+    //{"attribute":"fill","label":"Background Color","field":"input","values":[{"name":"","value":MagicBoard.theme.shapeColor,"type":"color"}]}
     // look for all components that have that property and modify them
     for (var c = 0, cLen = this.components.length;c < cLen;c++)
     {
@@ -1623,6 +1647,25 @@ Shape.prototype.drawSVG = function()
     return domParent;
 }
 
+/**
+ * This Function is used to change themecolor
+ * @param {Color} _shapeColor
+ * @param {Color} _borderColor
+ * @oaran {Color} _lineColor
+ *  @returns - nothing
+ */
+Shape.prototype.changeThemeColor = function(_shapeColor,_borderColor,_lineColor)
+{
+    if (!_shapeColor)  _shapeColor = MagicBoard.theme.shapeColor ;
+    if (!_borderColor) _borderColor = MagicBoard.theme.borderColor ;
+    
+    var cLen = this.components.length;
+    for (var c = 0; c < cLen ; c++)
+    {
+        var shapeComponent = this.components[c];
+        shapeComponent.changeThemeColor(_shapeColor,_borderColor);
+    }
+}
 
 /**
  * Connector Line Class is used draw connection between two shapes
@@ -1646,7 +1689,7 @@ var ConnectorLine = function(_cInfo)
 
 
     var conn = {"type":"path","origDim":{},"dimension":{"d":coord.d},
-        "param":{"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2,"cursor":"hand"},
+        "param":{"fill":"none","stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2,"cursor":"hand"},
         "lines":coord.lines,
         properties:{"line-style":true,"line-type":true,"line-color":true,"start-marker":true,"end-marker":true,"mid-marker":true}}
 
@@ -1718,6 +1761,26 @@ inheritsFrom(ConnectorLine,Shape);
 /*
  Override functions
  */
+
+/**
+ * This Function is used to change themecolor
+ * @param {Color} _shapeColor
+ * @param {Color} _borderColor
+ * @oaran {Color} _lineColor
+ *  @returns - nothing
+ */
+ConnectorLine.prototype.changeThemeColor = function(_shapeColor,_borderColor,_lineColor)
+{
+    _shapeColor = MagicBoard.theme.arrowFillColor ;
+    if (!_lineColor) _lineColor = MagicBoard.theme.lineColor ;
+    
+    var cLen = this.components.length;
+    for (var c = 0; c < cLen ; c++)
+    {
+        var shapeComponent = this.components[c];
+        shapeComponent.changeThemeColor(_shapeColor,_lineColor);
+    }
+}
 
 ConnectorLine.prototype.save = function()
 {
@@ -2062,8 +2125,8 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
     return derivedDimension;
 }
 
-/*
- *
+/**
+ * This function is called from Shape.drawSVG for each of its components
  */
 ShapeComponent.prototype.drawSVG = function(_offsetX, _offsetY)
 {
@@ -2084,6 +2147,32 @@ ShapeComponent.prototype.drawSVG = function(_offsetX, _offsetY)
         dom.innerHTML = this.dom.innerHTML;
     }
     return dom;
+}
+
+/**
+ * This function is called from Shape.changeThemeColor for each of its components
+ * @param {Color} _shapeColor
+ * @param {Color} _lineColor
+ */
+ShapeComponent.prototype.changeThemeColor = function(_shapeColor,_lineColor)
+{
+    
+    if (!_shapeColor)  _shapeColor = MagicBoard.theme.shapeColor ;
+    if (!_lineColor) _lineColor = MagicBoard.theme.lineColor ;
+    
+    if (this.type === "text" ) _shapeColor = MagicBoard.theme.textColor;
+    
+    var dom = this.dom;
+    if (_shapeColor && this.param["fill"])
+    {
+        this.param["fill"] = _shapeColor;
+        dom.setAttribute("fill",_shapeColor);
+    }
+    if (_lineColor && this.param["stroke"])
+    {
+        this.param["stroke"] = _lineColor;
+        dom.setAttribute("stroke",_lineColor);
+    }
 }
 
 /**
@@ -2256,7 +2345,7 @@ Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
             d[3] = {"op":"L",x:(x2 - left)*100/width,y:(y2 - top)*100/height};
             arrow.type = "path";
             arrow.dimension = {d:d};
-            arrow.param = {"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            arrow.param = {"fill":"none","stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2};
             break;
         case "FILLED":
             d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
@@ -2266,7 +2355,7 @@ Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
             d[4] = {"op":"Z"};
             arrow.type = "path";
             arrow.dimension = {d:d};
-            arrow.param = {"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            arrow.param = {"fill":MagicBoard.theme.arrowFillColor,"stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2};
             break;
         case "HOLLOW":
             d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
@@ -2276,7 +2365,7 @@ Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
             d[4] = {"op":"Z"};
             arrow.type = "path";
             arrow.dimension = {d:d};
-            arrow.param = {"fill":"white","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            arrow.param = {"fill":"white","stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2};
             break;
             
         case "DIAMONDFILLED":
@@ -2289,7 +2378,7 @@ Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
             d[5] = {"op":"Z"};
             arrow.type = "path";
             arrow.dimension = {d:d};
-            arrow.param = {"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            arrow.param = {"fill":MagicBoard.theme.arrowFillColor,"stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2};
             break;
             
         case "DIAMONDHOLLOW":
@@ -2302,7 +2391,7 @@ Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
             d[5] = {"op":"Z"};
             arrow.type = "path";
             arrow.dimension = {d:d};
-            arrow.param = {"fill":"white","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            arrow.param = {"fill":"white","stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2};
             break;
         case "DOT":
             arrow.type = "circle";
@@ -2312,7 +2401,7 @@ Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
             var cy = _point.y  - 8*Math.sin(_angle);
 
             arrow.dimension = {"cx":(cx  - left)*100/width,"cy":(cy  - top)*100/height,"r":radius};
-            arrow.param = {"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            arrow.param = {"fill":MagicBoard.theme.shapeColor,"stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2};
             break;
     }
 
@@ -3345,7 +3434,7 @@ Utility.Shape.showProperty = function()
     for (var p in properties)
     {
         var pDetail = MagicBoard.properties[p];
-        //{"attribute":"fill","label":"Background Color","field":"input","values":[{"name":"","value":"#1b8d11","type":"color"}]}
+        //{"attribute":"fill","label":"Background Color","field":"input","values":[{"name":"","value":MagicBoard.theme.shapeColor,"type":"color"}]}
         if (pDetail.field === "input")
         {
             disp += "<label class='propLabel'>"+pDetail.label+":</label><input class='propInput prop' data-propKey='"+p+"' class='prop' data-propType='"+pDetail.propType+"'  data-propName='"+pDetail.propName+"' type='"+pDetail.values[0].type+"' value='"+pDetail.values[0].value+"' onchange='Utility.addChangeFlag()'/><BR/>";
