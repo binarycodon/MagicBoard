@@ -332,6 +332,7 @@
          shape.applyProperty(pKey,target.getAttribute("data-name"),target.getAttribute("data-type"),target.value,target.getAttribute("data-label"));
        }
    }
+
     function addObject(id,noDraw,pos,cnter)
     {
         var shapeDetail = customShapes[id];
@@ -985,10 +986,10 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
         $("[data-toggle='tooltip']").tooltip();
   }
   
-  
+ /*
   var u12 = "data:image/svg+xml;utf8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20id=%22Sheet1%22%20name=%22mg%22%20height=%2274%22%20width=%2245%22%20style=%22position:%20absolute;%20left:%200px;%20top:%200px;%20z-index:%201;%20visibility:%20visible;%20width:%2045px;%20height:%2074px;%22%20x=%220%22%20y=%220%22%3E%3Cg%3E%3Cellipse%20fill=%22#1b8d11%22%20stroke=%22#1b8d11%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20cx=%2229.1%22%20cy=%2222%22%20rx=%227.5%22%20ry=%227.5%22/%3E%3Cpath%20fill=%22none%22%20stroke=%22#1b8d11%22%20stroke-miterlimit=%2210%22%20stroke-width=%222%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20d=%22M%2028%2028%20L%2028%2051%20M%2028%2037%20L%2015%2037%20M%2028%2037%20L%2041%2037%20M%2028%2051%20L%2015%2070%20M%2028%2051%20L%2041%2070%20%22/%3E%3C/g%3E%3C/svg%3E";
+  */
   
-  // umlActor.png
   // JSON
   var data =
 [
@@ -1034,6 +1035,25 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                      {"id":"ie","icon":"image/ie.png","description":"Browser"},
                      {"id":"server","icon":"image/server.png","description":"Server"},
                      {"id":"firewall","icon":"image/firewall.png","description":"Firewall"}
+                     ]
+               },{title:"BPM Diagram",id:"BPM",
+               list:[
+                     {"id":"startEvent","icon":"image/BPMN/start_event_ic.png","description":"Start Event"},
+                     {"id":"endEvent","icon":"image/BPMN/end_event_ic.png","description":"End Event"},
+                     {"id":"startCondEvent","icon":"image/BPMN/start_conditional_event_ic.png","description":"Conditional"},
+                     {"id":"startErrEvent","icon":"image/BPMN/start_error_event_ic.png","description":"Error"},
+                     {"id":"startTimerEvent","icon":"image/BPMN/start_timer_event_ic.png","description":"Timer"},
+                     {"id":"message","icon":"image/BPMN/Message_ic.png","description":"Message"},
+                     {"id":"parallelGateway","icon":"image/BPMN/parallel_gateway_ic.png","description":"Parallel"},
+                     {"id":"task","icon":"image/BPMN/task_ic.png","description":"task"}
+                     ,
+                     {"id":"xor","icon":"image/BPMN/data-based_exclusive(XOR)gateway_ic.png","description":"XOR"}
+                     ,
+                     {"id":"eventBasedGateway","icon":"image/BPMN/event_based_gateway_ic.png","description":"Event Based"}
+                     ,
+                     {"id":"inclusiveGateway","icon":"image/BPMN/inclusive_gateway_ic.png","description":"Inclusive"}
+                     ,
+                     {"id":"immediateCompensation","icon":"image/BPMN/intermediate_compensation_event_ic.png","description":"Compensation"}
                      ]
                }
                

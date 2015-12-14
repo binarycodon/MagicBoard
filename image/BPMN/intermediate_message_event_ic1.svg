@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 144 144" enable-background="new 0 0 144 144" xml:space="preserve">
+<symbol  id="Email" viewBox="-33 -24 66 48">
+	<path id="XMLID_75_" fill="#FFFFFF" d="M-33,24v-48h66v48H-33z M0-6.7l8.3,6L25.8-19h-51.6L-8.3-0.8L0-6.7z M0,1.9L-21,17h42L0,1.9
+		z M-10.8,1L-28-17v30.4L-10.8,1z M28-17L10.8,1L28,13.4V-17z"/>
+</symbol>
+<symbol  id="On_Page_Reference">
+</symbol>
+<use xlink:href="#On_Page_Reference"  width="-32766" height="-32766" id="XMLID_24_" x="16383" y="16383" transform="matrix(0.4506 0 0 -0.4506 23.3338 38.3328)" overflow="visible"/>
+<circle id="XMLID_20_" fill="#1B8D11" stroke="#231F20" cx="72" cy="73.8" r="61.8"/>
+<circle id="XMLID_37_" fill="#1B8D11" stroke="#231F20" cx="72" cy="73.8" r="51.2"/>
+<use xlink:href="#Email"  width="66" height="48" id="XMLID_32_" x="-33" y="-24" transform="matrix(1 0 0 -1 71.9997 73.8333)" overflow="visible"/>
+</svg>

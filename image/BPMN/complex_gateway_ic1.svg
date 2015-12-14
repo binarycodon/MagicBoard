@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 144 144" enable-background="new 0 0 144 144" xml:space="preserve">
+<symbol  id="Decision" viewBox="-55.4 -38.2 110.9 76.3">
+	<polygon id="XMLID_32_" fill="#1B8D11" stroke="#231F20" points="54.6,0 0,-37.6 -54.6,0 0,37.6 	"/>
+</symbol>
+<symbol  id="On_Page_Reference">
+</symbol>
+<use xlink:href="#On_Page_Reference"  width="-32766" height="-32766" id="XMLID_24_" x="16383" y="16383" transform="matrix(0.4506 0 0 -0.4506 23.3338 38.3328)" overflow="visible"/>
+<use xlink:href="#Decision"  width="110.9" height="76.3" id="XMLID_20_" x="-55.4" y="-38.2" transform="matrix(1.0817 0 0 -1.5983 72 72)" overflow="visible"/>
+<text id="XMLID_31_" transform="matrix(1 0 0 1 43.71 97.9492)" fill="#FFFFFF" font-family="'MyriadPro-Bold'" font-size="92.7847px">+</text>
+<text id="XMLID_33_" transform="matrix(0.7234 0.6904 -0.6904 0.7234 34.5555 71.328)" fill="#FFFFFF" font-family="'MyriadPro-Bold'" font-size="92.7847px">+</text>
+</svg>

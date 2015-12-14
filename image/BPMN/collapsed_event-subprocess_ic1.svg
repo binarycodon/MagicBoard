@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 144 144" enable-background="new 0 0 144 144" xml:space="preserve">
+<symbol  id="Email" viewBox="-33 -24 66 48">
+	<path id="XMLID_36_" fill="#FFFFFF" d="M-33,24v-48h66v48H-33z M0-6.7l8.3,6L25.8-19h-51.6L-8.3-0.8L0-6.7z M0,1.9L-21,17h42L0,1.9
+		z M-10.8,1L-28-17v30.4L-10.8,1z M28-17L10.8,1L28,13.4V-17z"/>
+</symbol>
+<symbol  id="On_Page_Reference" viewBox="-23.6 -23.6 47.2 47.2">
+	<path id="XMLID_31_" fill="#1B8D11" stroke="#231F20" d="M23.1,0c0-12.8-10.3-23.1-23.1-23.1c-12.8,0-23.1,10.3-23.1,23.1
+		c0,12.8,10.3,23.1,23.1,23.1C12.8,23.1,23.1,12.8,23.1,0z"/>
+</symbol>
+<symbol  id="Org._Chart_-_Vacancy" viewBox="-54.7 -28.5 109.4 57">
+	<polygon id="XMLID_26_" fill="none" stroke="#231F20" stroke-dasharray="1,2,1,2,1,2" points="54.2,-28 -54.2,-28 -54.2,28 
+		54.2,28 	"/>
+</symbol>
+<use xlink:href="#Org._Chart_-_Vacancy"  width="109.4" height="57" id="XMLID_20_" x="-54.7" y="-28.5" transform="matrix(1.2096 0 0 -1.8352 72.3333 73.6667)" overflow="visible"/>
+<use xlink:href="#On_Page_Reference"  width="47.2" height="47.2" id="XMLID_24_" x="-23.6" y="-23.6" transform="matrix(0.4506 0 0 -0.4506 23.3338 38.3328)" overflow="visible"/>
+<use xlink:href="#Email"  width="66" height="48" id="XMLID_30_" x="-33" y="-24" transform="matrix(0.2222 0 0 -0.2222 23.3336 38.3331)" overflow="visible"/>
+<rect id="XMLID_32_" x="61.3" y="110.5" fill="#1B8D11" stroke="#231F20" width="15.3" height="13.3"/>
+<text id="XMLID_33_" transform="matrix(1 0 0 1 63.25 122.1563)" fill="#FFFFFF" font-family="'MyriadPro-Bold'" font-size="18px">+</text>
+</svg>

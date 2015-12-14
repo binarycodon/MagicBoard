@@ -521,7 +521,7 @@ Sheet.prototype.getImage = function(_type)
         
         var context = canvas.getContext("2d");
         context.drawImage(img,0,0,canvas.width,canvas.height);
-        document.body.appendChild(canvas);
+        //document.body.appendChild(canvas);
         
         var dataURL = canvas.toDataURL();
         return dataURL;
@@ -1931,8 +1931,18 @@ ShapeComponent.prototype.construct = function()
     if (this.type === "image")
     {
         var href = this.xlink;
+        /*
+        var img = document.createElement("img");
+        img.src = href;
+        var c = document.createElement("canvas");
+        c.height = img.naturalHeight ; c.width = img.naturalWidth ;
+        var cx = c.getContext("2d");
+        cx.drawImage(img,0,0,c.width,c.height);
+
+        var dataURL = c.toDataURL();
+        */
+        
         this.dom.setAttributeNS("http://www.w3.org/1999/xlink","href",href);
-        //.setAttributeNS('http://www.w3.org/1999/xlink','href', 'myimage.jpg');
     }
 
     return dom;

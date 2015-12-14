@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 144 144" enable-background="new 0 0 144 144" xml:space="preserve">
+<symbol  id="Arrow_3" viewBox="-11.6 -10.8 23.2 21.5">
+	<g id="XMLID_57_">
+		<g id="XMLID_93_">
+			<g id="XMLID_95_">
+				<polygon id="XMLID_96_" points="-11.6,-10.8 -2.7,0 -11.6,10.8 11.6,0 				"/>
+			</g>
+		</g>
+		<g id="XMLID_90_">
+			<g id="XMLID_91_">
+				<polygon id="XMLID_92_" points="-11.6,-10.8 -2.7,0 -11.6,10.8 11.6,0 				"/>
+			</g>
+		</g>
+	</g>
+</symbol>
+<symbol  id="On_Page_Reference">
+</symbol>
+<use xlink:href="#On_Page_Reference"  width="-32766" height="-32766" id="XMLID_24_" x="16383" y="16383" transform="matrix(0.4506 0 0 -0.4506 23.3338 38.3328)" overflow="visible"/>
+<circle id="XMLID_20_" fill="#1B8D11" stroke="#231F20" cx="72" cy="73.8" r="61.8"/>
+<use xlink:href="#Arrow_3"  width="23.2" height="21.5" id="XMLID_32_" x="-11.6" y="-10.8" transform="matrix(1.200652e-010 -2.6743 -2.6743 -1.200652e-010 72.0005 72.3333)" overflow="visible"/>
+</svg>
