@@ -90,13 +90,25 @@
        //ev.target.appendChild(document.getElementById(data));
    }
    
-   function downloadSheetImage()
+   function downloadSheetImage(type)
    {
        var sheet = MagicBoard.sheetBook.currentSheet;
-       var dataURL = sheet.getImage();
-       dataURL = dataURL.replace("data:image/png","data:application/octet-stream");
+       var extension = "";
+       var dataURL = sheet.getImage(type);
+       if (type === "svg")
+       {
+           //dataURL = 'data:image/svg+xml;utf8,' + encodeURI(dataURL);
+           dataURL = 'data:text/html;base64,' + btoa(dataURL);
+           alert("Temporarily saving as .html, please rename it to .svg after download");
+       } else
+       {
+           dataURL = dataURL.replace("data:image/png","data:application/octet-stream");
+       }
+       
        var a = document.createElement("a");
-       a.setAttribute("download",sheet.name+".png");
+       if (type === "png") a.setAttribute("download",sheet.name+"."+type);
+       else a.setAttribute("download",sheet.name);
+
        a.href = dataURL;
        a.click();
        
@@ -153,9 +165,21 @@
                case "oneArrowEndDiv":
                    connectProp.end = "REGULAR";
                    break;
+                case "diamondFilledEndDiv":
+                   connectProp.end = "DIAMONDFILLED";
+                   break;
+                case "diamondHollowEndDiv":
+                   connectProp.end = "DIAMONDHOLLOW";
+                   break;
                case "oneFillArrowBeginDiv":
                    connectProp.begin = "FILLED";
-               break;
+                   break;
+               case "diamondFilledBeginDiv":
+                    connectProp.begin = "DIAMONDFILLED";
+                    break;
+               case "diamondHollowBeginDiv":
+                    connectProp.begin = "DIAMONDHOLLOW";
+                    break;
                case "oneRoundBeginDiv":
                    connectProp.begin = "DOT";
                    break;
@@ -312,6 +336,12 @@
     {
         var shapeDetail = customShapes[id];
         var s = new Shape(shapeDetail);
+        s.events = {
+            "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
+            "click":{"override":null,"post":"showProperty","pre":null},
+            "hover":{"override":null,"post":null,"pre":null},
+            "doubleClick":{"override":null,"post":null,"pre":null}};
+        
         if (!noDraw)
         {
             s.draw();
@@ -597,12 +627,13 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
        
        MagicBoard.sheetBook.setCurrentSheet(sheet);
        
-       var newHTML = "<li  onclick=\"activateSheet('"+name+"')\" id=\""+name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+name+"<span class=\"caret\"></span></button>" +
+       var newHTML = "<li  onclick=\"activateSheet('"+name+"')\" id=\""+name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+name+"<span class=\"caret\"></span></a>" +
        "<ul class=\"dropdown-menu\">" +
-       "<li><a href=\"#\" onclick=\"downloadSheetImage()\">Download</a></li>" +
+       "<li><a href=\"#\" onclick=\"downloadSheetImage('png')\">PNG Image</a></li>"+
+       "<li><a href=\"#\" onclick=\"downloadSheetImage('svg')\">SVG Image</a></li>"+
        "<li><a href=\"#\" onclick=\"saveSheet()\">Save</a></li>" +
        "<li><a href=\"#\" onclick=\"deleteSheet()\">Delete</a></li>" +
-       "</ul></a> </li>" ;
+       "</ul> </li>" ;
        /*
         <li  onclick="activateSheet('UML')" id="UMLTab" class="active"><a  href="#" id="UML" class="dropdown-toggle" data-toggle="dropdown">UML<span class="caret"></span></button>
         <ul class="dropdown-menu">
@@ -678,11 +709,13 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                   <ul class="nav nav-tabs" id="sheetTabs">
                       <li  onclick="activateSheet('Sheet1')" id="Sheet1Tab" class="active"><a  href="#" id="Sheet1" class="dropdown-toggle" data-toggle="dropdown">Sheet1<span class="caret"></span>
                           <ul class="dropdown-menu" id="sheetMenu">
-                              <li><a href="#" onclick="downloadSheetImage()">Download</a></li>
-                              <li><a href="#" onclick="saveSheet()">Rename</a></li>
+                              <li><a href="#" onclick="downloadSheetImage('png')">Download PNG</a></li>
+                              <li><a href="#" onclick="downloadSheetImage('svg')">Download SVG</a></li>
+                              <li><a href="#" onclick="renameSheet()">Rename</a></li>
                               <li><a href="#" onclick="saveSheet()">Save</a></li>
                               <li><a href="#" onclick="deleteSheet()">Delete</a></li>
-                          </ul></a> </li>
+                          </ul></a>
+                      </li>
                       <li  onclick="promptSheetName()" id="NewTab" ><a  href="#" id="new">New Sheet</a></li>
                       <!--
                       <li onclick="activateSheet()"><a href="#layer">Entity Relation</a></li>
@@ -727,6 +760,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                          <div style="font-size:7px;text-align:center">Curved</div>
                          <img src="image/curved.png" id="curved"  onclick="connectShape('curved')" class="imgIcon">
                      </div>
+                     
                  </div>
              </div>
 
@@ -737,23 +771,30 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
               </div>
               <div>
                   <div class="panel-body">
-                      <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                      <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Filled Arrow">
                           <div style="font-size:7px;text-align:center">Filled</div>
                           <img src="image/oneFillArrow.png" id="oneFillArrowEnd"  onclick="drawArrowE('oneFillArrowEnd')" class="imgIcon">
                       </div>
-                      <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                      <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Circle">
                           <div style="font-size:7px;text-align:center">Round Head</div>
                           <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowE('oneRoundEnd')" class="imgIcon">
                       </div>
-                      <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                      <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
                           <div style="font-size:7px;text-align:center">Hollow</div>
                           <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowE('oneHollowArrowEnd')" class="imgIcon">
                       </div>
-                      <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                      <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Regular Arrow">
                           <div style="font-size:7px;text-align:center">Arrow</div>
-                          <img src="image/oneArrow.png" id="zigZag"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
+                          <img src="image/oneArrow.png" id="oneArrowEnd"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
                       </div>
-
+                      <div id="diamondFilledEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
+                          <div style="font-size:7px;text-align:center">Diamond</div>
+                          <img src="image/oneArrow.png" id="diamondFilledEnd"  onclick="drawArrowE('diamondFilledEnd')" class="imgIcon">
+                              </div>
+                      <div id="diamondHollowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
+                          <div style="font-size:7px;text-align:center">Diamond</div>
+                          <img src="image/oneArrow.png" id="diamondHollowEnd"  onclick="drawArrowE('diamondHollowEnd')" class="imgIcon">
+                              </div>
                   </div>
               </div>
           </section>
@@ -763,21 +804,29 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
               </div>
               <div>
                   <div class="panel-body">
-                      <div  id="oneFillArrowBeginDiv" class="connInactive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                      <div  id="oneFillArrowBeginDiv" class="connInactive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="filled Arrow">
                           <div style="font-size:7px;text-align:center">Filled</div>
                           <img src="image/oneFillArrow.png" id="oneFillArrow"  onclick="drawArrowB('oneFillArrowBegin')" class="imgIcon">
                       </div>
-                      <div id="oneRoundBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                      <div id="oneRoundBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="dot">
                           <div style="font-size:7px;text-align:center">Round Head</div>
                           <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowB('oneRoundBegin')" class="imgIcon">
                       </div>
-                      <div  id="oneHollowArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Direct Line">
+                      <div  id="oneHollowArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
                           <div style="font-size:7px;text-align:center">Hollow</div>
                           <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowB('oneHollowArrowBegin')" class="imgIcon">
                       </div>
-                      <div id="oneArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
+                      <div id="oneArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Arrow">
                           <div style="font-size:7px;text-align:center">Arrow</div>
-                          <img src="image/oneArrow.png" id="zigZag"  onclick="drawArrowB('oneArrowBegin')" class="imgIcon">
+                          <img src="image/oneArrow.png" id="oneArrowBegin"  onclick="drawArrowB('oneArrowBegin')" class="imgIcon">
+                      </div>
+                      <div id="diamondFilledBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
+                          <div style="font-size:7px;text-align:center">Diamond</div>
+                          <img src="image/oneArrow.png" id="diamondFilledBegin"  onclick="drawArrowB('diamondFilledBegin')" class="imgIcon">
+                      </div>
+                      <div id="diamondHollowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
+                          <div style="font-size:7px;text-align:center">Diamond</div>
+                          <img src="image/oneArrow.png" id="diamondHollowBegin"  onclick="drawArrowB('diamondHollowBegin')" class="imgIcon">
                       </div>
 
                   </div>
@@ -937,6 +986,9 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
   }
   
   
+  var u12 = "data:image/svg+xml;utf8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20id=%22Sheet1%22%20name=%22mg%22%20height=%2274%22%20width=%2245%22%20style=%22position:%20absolute;%20left:%200px;%20top:%200px;%20z-index:%201;%20visibility:%20visible;%20width:%2045px;%20height:%2074px;%22%20x=%220%22%20y=%220%22%3E%3Cg%3E%3Cellipse%20fill=%22#1b8d11%22%20stroke=%22#1b8d11%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20cx=%2229.1%22%20cy=%2222%22%20rx=%227.5%22%20ry=%227.5%22/%3E%3Cpath%20fill=%22none%22%20stroke=%22#1b8d11%22%20stroke-miterlimit=%2210%22%20stroke-width=%222%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20d=%22M%2028%2028%20L%2028%2051%20M%2028%2037%20L%2015%2037%20M%2028%2037%20L%2041%2037%20M%2028%2051%20L%2015%2070%20M%2028%2051%20L%2041%2070%20%22/%3E%3C/g%3E%3C/svg%3E";
+  
+  // umlActor.png
   // JSON
   var data =
 [
@@ -1027,41 +1079,10 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                           MagicBoard.sheetBook.addSheet(sheet1);
                           MagicBoard.sheetBook.setCurrentSheet(sheet1);
 
-                          //
-                          //var shape = new Shape(s);
-                          //shape.draw();
-                          //shape.addHover();
-                          //shape.setPosition({"x":10,"y":400});
-                          /*
-                          var style1 = {left:100,top:100,width:50,height:50,"background-color":"#ff0000","border-width":3,"border-color":"rgb(27,141,17)","border-radius":150};
-                          
-                          var r1 = new Rect(style1);
-                          r1.draw();
-                          r1.addHover();
-                          */
                           
                           });
                           
-                          
-        function tempDraw()
-        {
-            var s0 = addObject("umlClass",false,{x:23,y:138});
-            var s1 = addObject("umlClass",false,{x:345,y:138});
-            var s2 = addObject("umlClass",false,{x:345,y:332});
-            var s3 = addObject("umlClass",false,{x:740,y:23});
-            var s4 = addObject("umlClass",false,{x:740,y:332});
-            
-            s1.connectTo(s0);
-            s1.connectTo(s2);
-            s1.connectTo(s3);
-            s1.connectTo(s4);
-            
-            s0.updateText("User",0);s0.updateText("+firstName:String",1);s0.updateText("+addUser():bool",2);
-            s1.updateText("Booking",0);s1.updateText("+bookingRef:bool",1);s1.updateText("+addBooking():bool",2);
-            s2.updateText("Ticket",0);s2.updateText("+ticketName:String",1);s2.updateText("+addTicket():bool",2);
-            s3.updateText("Payment",0);s3.updateText("+invoiceNo:int",1);s3.updateText("+addPayment():bool",2);
-            s4.updateText("Show",0);s4.updateText("+showName:String",1);s4.updateText("+addShow():bool",2);
-        }
+
       </script>
 </html>
 

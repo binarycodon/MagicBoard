@@ -480,26 +480,54 @@ Sheet.prototype.refreshConnections = function()
 }
 /**
  * This Function converts the Sheet into an image
+ *  @param - {String} _type - type of image to download
  *  @returns - {DataURL} dataURL
  */
-Sheet.prototype.getImage = function()
+Sheet.prototype.getImage = function(_type)
 {
-    var canvas = document.createElement("canvas");
 
-    canvas.height = MagicBoard.sheetBook.cheight; canvas.width = MagicBoard.sheetBook.cwidth;
-
-    var context = canvas.getContext("2d");
-
+    var svg = this.canvas.cloneNode();
+        
     var shapes = this.shapes;var sLen = shapes.length;
-    for (var s = 0; s < sLen;s++)
+    var minX = 9999, minY=9999, maxX=0, maxY=0;
+        for (var s = 0; s < sLen;s++)
+        {
+            var shape = shapes[s];
+            var g = shape.drawSVG();
+            svg.appendChild(g);
+            var dim = shape.frame;
+            if (dim.left < minX) minX = dim.left;
+            if (dim.top < minY) minY = dim.top;
+            if (dim.right > maxX) maxX = dim.right;
+            if (dim.bottom > maxY) maxY = dim.bottom;
+        }
+    
+    svg.setAttribute("x",0);svg.setAttribute("y",0);
+    svg.setAttribute("width",maxX);svg.setAttribute("height",maxY );
+    svg.style["width"] = maxX +"px";svg.style["height"] = maxY +"px";
+    var serializer = new XMLSerializer();
+    var str = serializer.serializeToString(svg);
+    if (_type === "svg")
     {
-        var shape = shapes[s];
-        shape.drawOnCanvas(context);
+        return str;
+    } else
+    {
+        var img = document.createElement("IMG");
+        img.src = "data:image/svg+xml;utf8,"+encodeURI(str);
+        //console.log(img.src);
+        var canvas = document.createElement("canvas");
+        
+        canvas.height = maxY ; canvas.width = maxX ;
+        
+        var context = canvas.getContext("2d");
+        context.drawImage(img,0,0,canvas.width,canvas.height);
+        document.body.appendChild(canvas);
+        
+        var dataURL = canvas.toDataURL();
+        return dataURL;
     }
-
-    var dataURL = canvas.toDataURL();
-    return dataURL;
 }
+
 /**
  * This Function adds connections between two shapes
  *  @param {Object} _cInfo - Has the following format {"beginShape":shape,"endShape":shape,pos:{x1:0,y1:0,x2:100,y2:100}}
@@ -1233,6 +1261,7 @@ Shape.prototype.setDimension = function(dim)
     this.addAlignments();
 }
 
+
 /**
  * This Function is removes alignment coordinates for this shape so they will not be used for any alignment checks
  *  @returns - nothing
@@ -1574,6 +1603,25 @@ Shape.prototype.drawOnCanvas = function(_context)
     this.refreshConnection(_context);
 }
 
+/**
+ * This Function is used to paint the shape using SVG
+ *  @returns - nothing
+ */
+Shape.prototype.drawSVG = function()
+{
+    var domParent = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+    var offsetX = this.frame.left;
+    var offsetY = this.frame.top;
+    var cLen = this.components.length;
+    for (var c = 0; c < cLen ; c++)
+    {
+        var shapeComponent = this.components[c];
+        var dom = shapeComponent.drawSVG(offsetX,offsetY);
+        domParent.appendChild(dom);
+    }
+    return domParent;
+}
 
 
 /**
@@ -1602,21 +1650,7 @@ var ConnectorLine = function(_cInfo)
         "lines":coord.lines,
         properties:{"line-style":true,"line-type":true,"line-color":true,"start-marker":true,"end-marker":true,"mid-marker":true}}
 
-    if(_cInfo.connProp.end) {
-        var endType = _cInfo.connProp.end;
-        if (endType === "FILLED") conn.param["marker-end"] = "url(#fillArrowE)";
-        else if (endType === "HOLLOW") conn.param["marker-end"] = "url(#hollowArrowE)";
-        else if (endType === "DOT") conn.param["marker-end"] = "url(#dot)";
-        else if (endType === "REGULAR") conn.param["marker-end"] = "url(#lineArrowE)";
-    }
 
-    if(_cInfo.connProp.begin) {
-        var beginType = _cInfo.connProp.begin;
-        if (beginType === "FILLED") conn.param["marker-start"] = "url(#fillArrowS)";
-        else if (beginType === "HOLLOW") conn.param["marker-start"] = "url(#hollowArrowS)";
-        else if (beginType === "DOT") conn.param["marker-start"] = "url(#dot)";
-        else if (beginType === "REGULAR") conn.param["marker-start"] = "url(#lineArrowS)";
-    }
     if(_cInfo.connProp.style) {
         var lineType = _cInfo.connProp.style;
         if (lineType === "DASHED") conn.param["stroke-dasharray"] = "10,5";
@@ -1627,6 +1661,21 @@ var ConnectorLine = function(_cInfo)
 
     var component = new ShapeComponent(conn);
     this.components.push(component);
+    
+    if(_cInfo.connProp.begin) {
+        var dArray;
+        var beginType = _cInfo.connProp.begin;
+        var arrowComponent = Drawing.createArrowPath("start",beginType,this.cInfo.angleStart,{x:this.cInfo.pos.x1,y:this.cInfo.pos.y1},this.frame);
+        this.components.push(arrowComponent);
+    }
+    
+    if(_cInfo.connProp.end) {
+        var dArray;
+        var endType = _cInfo.connProp.end;
+        var arrowComponent = Drawing.createArrowPath("end",endType,this.cInfo.angleEnd,{x:this.cInfo.pos.x2,y:this.cInfo.pos.y2},this.frame);
+        this.components.push(arrowComponent);
+    }
+    
     this.properties = component.properties;
     if (_cInfo.events) this.events = _cInfo.events;
     var cdom = component.dom;
@@ -1873,7 +1922,7 @@ ShapeComponent.prototype.construct = function()
     if (!this.parentShape) return;
 
     var dom = this.dom;
-    this.calculateDimensions();
+    this.derivedDimension = this.calculateDimensions();
     for (var k in this.derivedDimension)
     {
         this.dom.setAttribute(k,this.derivedDimension[k]);
@@ -1907,10 +1956,15 @@ ShapeComponent.prototype.save = function()
 
 /**
  *  This function converts the % dimensions to real pixel
+ *  @param {Number} _offsetX - offset from X
+ *  @param {Number} _offsetY - offset from Y
  *  @return nothing
  */
-ShapeComponent.prototype.calculateDimensions = function()
+ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
 {
+    var derivedDimension = {};
+    if (!_offsetX) _offsetX = 0;
+    if (!_offsetY) _offsetY = 0;
     //if (!this.dimensions) return; // no need to calculate it
     var margin = 0;
     if (this.param["stroke-width"])
@@ -1934,7 +1988,7 @@ ShapeComponent.prototype.calculateDimensions = function()
             case "x1":
             case "x2":
             case "cx":
-                val = (percentVal * pw / 100) + margin;
+                val = (percentVal * pw / 100) + margin + _offsetX;
                 break;
 
             case "rx":
@@ -1948,7 +2002,7 @@ ShapeComponent.prototype.calculateDimensions = function()
             case "y1":
             case "y2":
             case "cy":
-                val = (percentVal * ph / 100) + margin;
+                val = (percentVal * ph / 100) + margin + _offsetY;
                 break;
             case "ry":
                 val = (percentVal * ph / 100) - margin;
@@ -1969,8 +2023,8 @@ ShapeComponent.prototype.calculateDimensions = function()
                     for (var ik in item)
                     {
                         var vl = item[ik];
-                        if (ik.indexOf("x") > -1) vl = Math.round( item[ik] * pw / 100) ;
-                        else if (ik.indexOf("y") > -1) vl = Math.round( item[ik] * ph / 100) ;
+                        if (ik.indexOf("x") > -1) vl = Math.round( item[ik] * pw / 100) + _offsetX ;
+                        else if (ik.indexOf("y") > -1) vl = Math.round( item[ik] * ph / 100) + _offsetY;
                         this.lines[i][ik] = vl;
                         val += vl+" ";
                     }
@@ -1978,22 +2032,48 @@ ShapeComponent.prototype.calculateDimensions = function()
                 break;
         }
 
-        if (val) this.derivedDimension[k] = val;
+        if (val) derivedDimension[k] = val;
     }
-
+    
     if (this.type === "text" || this.type === "rect")
     {
+        var dom = this.dom;
         if (this.dimension.cx)
         {
-            var x =  parseInt(dom.getAttribute("cx")) - parseInt(dom.getAttribute("width"))/2;
-            this.derivedDimension.x = x;
+            var x =  parseInt(dom.getAttribute("cx")) - parseInt(dom.getAttribute("width"))/2 + _offsetX;
+            derivedDimension.x = x;
         }
         if (this.dimension.cy)
         {
-            var y = parseInt(dom.getAttribute("cy")) - parseInt(dom.getAttribute("height"))/2;
-            this.derivedDimension.y = y;
+            var y = parseInt(dom.getAttribute("cy")) - parseInt(dom.getAttribute("height"))/2 + _offsetY;
+            derivedDimension.y = y;
         }
     }
+    return derivedDimension;
+}
+
+/*
+ *
+ */
+ShapeComponent.prototype.drawSVG = function(_offsetX, _offsetY)
+{
+    var dom = this.dom.cloneNode();
+    var derivedDimension = this.calculateDimensions(_offsetX,_offsetY);
+    for (var k in derivedDimension)
+    {
+        var val = derivedDimension[k];
+        dom.setAttribute(k,val);
+    }
+    
+    if (this.type === "image")
+    {
+        var href = this.xlink;
+        dom.setAttributeNS("http://www.w3.org/1999/xlink","href",href);
+    } else if (this.type === "text")
+    {
+        dom.innerHTML = this.dom.innerHTML;
+    }
+    return dom;
 }
 
 /**
@@ -2135,6 +2215,102 @@ Drawing.getArrowHead = function(_x,_y,_angle)
 }
 
 /**
+ * This function creates svg path for a given arrow type
+  *  @param - {String} - _place - possible values _start & _end, future value mid
+  *  @param - {String} - _arrowType - possible values FILLED, HOLLOW, DOT, REGULAR, DIAMONDFILLED, DIAMONDHOLLOW
+  *  @param - {Number} - _angle - angle of the line
+  *  @param - {Object} _point - coordinate of point where arrow needs to be drawn
+  *  @return - {Array} - return path d Array
+ */
+
+Drawing.createArrowPath = function(_place,_arrowType,_angle,_point,_frame)
+{
+    var d = []; var width = _frame.width; var height = _frame.height;
+    var left = _frame.left; var top = _frame.top;
+    
+    var headlen = 15;
+    var x1,x2,y1,y2;
+
+        x1 = _point.x-headlen*Math.cos(_angle-Math.PI/6);
+        y1 = _point.y-headlen*Math.sin(_angle-Math.PI/6);
+        x2 = _point.x-headlen*Math.cos(_angle+Math.PI/6);
+        y2 = _point.y-headlen*Math.sin(_angle+Math.PI/6);
+
+    var arrow = {properties:{}};
+    switch (_arrowType)
+    {
+        case "REGULAR":
+            d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[1] = {"op":"L",x:(x1 - left)*100/width,y:(y1 - top)*100/height};
+            d[2] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[3] = {"op":"L",x:(x2 - left)*100/width,y:(y2 - top)*100/height};
+            arrow.type = "path";
+            arrow.dimension = {d:d};
+            arrow.param = {"fill":"none","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            break;
+        case "FILLED":
+            d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[1] = {"op":"L",x:(x1 - left)*100/width,y:(y1 - top)*100/height};
+            d[2] = {"op":"L",x:(x2 - left)*100/width,y:(y2 - top)*100/height};
+            d[3] = {"op":"L",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[4] = {"op":"Z"};
+            arrow.type = "path";
+            arrow.dimension = {d:d};
+            arrow.param = {"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            break;
+        case "HOLLOW":
+            d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[1] = {"op":"L",x:(x1 - left)*100/width,y:(y1 - top)*100/height};
+            d[2] = {"op":"L",x:(x2 - left)*100/width,y:(y2 - top)*100/height};
+            d[3] = {"op":"L",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[4] = {"op":"Z"};
+            arrow.type = "path";
+            arrow.dimension = {d:d};
+            arrow.param = {"fill":"white","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            break;
+            
+        case "DIAMONDFILLED":
+            var y3 = y1 + y2 - _point.y; var x3 = x1 + x2 - _point.x;
+            d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[1] = {"op":"L",x:(x1 - left)*100/width,y:(y1 - top)*100/height};
+            d[2] = {"op":"L",x:(x3 - left)*100/width,y:(y3 - top)*100/height};
+            d[3] = {"op":"L",x:(x2 - left)*100/width,y:(y2 - top)*100/height};
+            d[4] = {"op":"L",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[5] = {"op":"Z"};
+            arrow.type = "path";
+            arrow.dimension = {d:d};
+            arrow.param = {"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            break;
+            
+        case "DIAMONDHOLLOW":
+            var y3 = y1 + y2 - _point.y; var x3 = x1 + x2 - _point.x;
+            d[0] = {"op":"M",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[1] = {"op":"L",x:(x1 - left)*100/width,y:(y1 - top)*100/height};
+            d[2] = {"op":"L",x:(x3 - left)*100/width,y:(y3 - top)*100/height};
+            d[3] = {"op":"L",x:(x2 - left)*100/width,y:(y2 - top)*100/height};
+            d[4] = {"op":"L",x:(_point.x - left)*100/width,y:(_point.y - top)*100/height};
+            d[5] = {"op":"Z"};
+            arrow.type = "path";
+            arrow.dimension = {d:d};
+            arrow.param = {"fill":"white","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            break;
+        case "DOT":
+            arrow.type = "circle";
+            var radius = 700/width;
+            var cx = _point.x-8*Math.cos(_angle);
+            
+            var cy = _point.y  - 8*Math.sin(_angle);
+
+            arrow.dimension = {"cx":(cx  - left)*100/width,"cy":(cy  - top)*100/height,"r":radius};
+            arrow.param = {"fill":"rgb(27,141,17)","stroke":"rgb(27,141,17)","stroke-miterlimit":"10","stroke-width":2};
+            break;
+    }
+
+    var arrowComponent = new ShapeComponent(arrow);
+    return arrowComponent;
+}
+
+/**
  * This Function draws arrow head into canvas for a given coordinates
  *  @static
  *  @param {2D_Context} _cntx
@@ -2159,7 +2335,7 @@ Drawing.drawArrow = function(_cntx,_x,_y,_angle,_type,_fillColor,_strokeColor)
     x2 = _x-headlen*Math.cos(_angle+Math.PI/6);
     y2 = _y-headlen*Math.sin(_angle+Math.PI/6);
 
-    _cntx.beginPath();
+    if (_cntx) _cntx.beginPath();
     if (_strokeColor) _cntx.strokeStyle = _strokeColor;
     switch (_type)
     {
