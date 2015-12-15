@@ -53,6 +53,7 @@
        ev.dataTransfer.setData("text", ev.target.id);
    }
    
+   var fileType , fileName;
    function drop(ev) {
        ev.preventDefault();
        var dt = ev.dataTransfer;
@@ -64,17 +65,45 @@
            //tempDraw();
            for (var i = 0; i < files.length; i++) {
                var file = files[i];
-               var fileType = file.type;
-               var fileName = file.name;
+               fileType = file.type;
+               fileName = file.name;
+
+                   var fArray = fileName.split(".");
+                   if (fArray[fArray.length - 1] === "svg") fileType = "image/svg+xml";
+                   else if (fArray[fArray.length - 1] === "json") fileType = "application/json";
+                   fArray.pop();
+                   fileName = fArray.join(".");
                var reader = new FileReader();
                
                reader.onload = function(e) {
-                   var jsonString = reader.result;
-                   var obj = JSON.parse(jsonString);
-                   var sheet1 = new Sheet(obj);
-                   MagicBoard.sheetBook.addSheet(sheet1);
-                   MagicBoard.sheetBook.setCurrentSheet(sheet1);
-                   Utility.Sheet.connectIds();
+                   if (fileType === "image/svg+xml")
+                   {
+                       var svg = reader.result;
+                       currentSheetName = MagicBoard.sheetBook.currentSheet.name;
+                       var newSheet = Utility.SheetBook.createSheet(fileName,svg);
+                       
+                       addNewSheetTab(fileName);
+                       var shapes = newSheet.shapes;
+                       for (var s = 0,sLen = shapes.length; s < sLen;s++)
+                       {
+                           var shape = shapes[s];
+                           shape.events = {
+                               "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
+                               "click":{"override":null,"post":"showProperty","pre":null},
+                               "hover":{"override":null,"post":null,"pre":null},
+                               "doubleClick":{"override":null,"post":null,"pre":null}};
+                       }
+                       // draw the sheet
+                   } else if (fileType === "application/json")
+                   {
+                       var jsonString = reader.result;
+                       var obj = JSON.parse(jsonString);
+                       var sheet1 = new Sheet(obj);
+                       MagicBoard.sheetBook.addSheet(sheet1);
+                       MagicBoard.sheetBook.setCurrentSheet(sheet1);
+                       Utility.Sheet.connectIds();
+                   }
+
                }
                
                reader.readAsText(file);
@@ -482,6 +511,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
 
 //
    var defaultSheet = "Sheet1";
+   var currentSheetName = defaultSheet;
    var customShapes = {
        "layers":{
            frame:{left:10,width:"80%",height:150,"border":"1px solid","border-radius":"10px",unit:"px"},
@@ -568,7 +598,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
        activateSheetCalled = true;
        if (!_sheetName) _sheetName = event.target.getAttribute("id");
        setTimeout(function() {activateSheetCalled = false;},400 );
-       var currentSheetName = MagicBoard.sheetBook.currentSheet.name;
+       //var currentSheetName = MagicBoard.sheetBook.currentSheet.name;
        if (currentSheetName === _sheetName) return;
        // toggle "active" class for sheet tab & accordion tab
       $("#"+currentSheetName+"Tab").removeClass("active");
@@ -597,6 +627,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
         //sheet.reDraw();
         sheet.refreshConnections();
         $("#"+id+"Tab").addClass("active");
+        currentSheetName = id;
         // toggle active class for sheet tab and accordion tab
    }
 
@@ -632,10 +663,8 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
 
        $("#sheetNamePrompt").hide();
        //
-       var currentSheetName = MagicBoard.sheetBook.currentSheet.name;
+       currentSheetName = MagicBoard.sheetBook.currentSheet.name;
 
-       // toggle "active" class for sheet tab & accordion tab
-       $("#"+currentSheetName+"Tab").removeClass("active");
        
        var options = {"name":name};
        var sheet = MagicBoard.sheetBook.getSheet(name);
@@ -646,8 +675,13 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
        }
        
        MagicBoard.sheetBook.setCurrentSheet(sheet);
-       
-       var newHTML = "<li  onclick=\"activateSheet('"+name+"')\" id=\""+name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+name+"<span class=\"caret\"></span></a>" +
+       addNewSheetTab(name);
+
+   }
+   
+   function addNewSheetTab(_name)
+   {
+       var newHTML = "<li  onclick=\"activateSheet('"+_name+"')\" id=\""+_name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+_name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+_name+"<span class=\"caret\"></span></a>" +
        "<ul class=\"dropdown-menu\">" +
        "<li><a href=\"#\" onclick=\"downloadSheetImage('png')\">Download PNG</a></li>"+
        "<li><a href=\"#\" onclick=\"downloadSheetImage('svg')\">Download SVG</a></li>"+
@@ -655,21 +689,13 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
        "<li><a href=\"#\" onclick=\"saveSheet()\">Save</a></li>" +
        "<li><a href=\"#\" onclick=\"deleteSheet()\">Delete</a></li>" +
        "</ul> </li>" ;
-       /*
-        <li  onclick="activateSheet('UML')" id="UMLTab" class="active"><a  href="#" id="UML" class="dropdown-toggle" data-toggle="dropdown">UML<span class="caret"></span></button>
-        <ul class="dropdown-menu">
-        <li><a href="#" onclick="downloadSheetImage()">Download</a></li>
-        <li><a href="#" onclick="saveSheet()">Save</a></li>
-        <li><a href="#" onclick="deleteSheet()">Delete</a></li>
-        </ul></a> </li>
-        */
-       //$("#newTab");
-       
-       //$("#sheetTabs").before(newHTML);
+
        $("#NewTab").before(newHTML);
+       
+       // toggle "active" class for sheet tab & accordion tab
+       $("#"+currentSheetName+"Tab").removeClass("active");
 
-       //$("#"+name+"Tab").addClass("active");
-
+       $("#"+_name+"Tab").addClass("active");
    }
    
    function deleteSheet()
@@ -960,6 +986,28 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                                 }
   */
   
+  function getAssets()
+  {
+      var dLen = data.length;
+      for (var i = 0; i < dLen;i++)
+      {
+          var section = data[i].section;
+          if (section.title === "Assets")
+          {
+              var categories = section.categories; // it is an array
+              // read registered services and get the assets
+              /*
+               {title:"Services",id:"Service",
+                list:[
+                        {"id":"Customers","icon":"image/service.png","description":"Customers"},
+                        {"id":"Account","icon":"image/service.png","description":"Account"}
+                    ]
+               }
+               */
+          }
+      }
+  }
+  
   function buildSideMenu()
   {
       var dLen = data.length;
@@ -1112,6 +1160,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
    //
    
       $( document ).ready(function() {
+                          getAssets(); // this will get all registered enterprise assets
                           buildSideMenu();
 
                           var paper = document.getElementById("paper");

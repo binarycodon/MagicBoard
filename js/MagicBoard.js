@@ -321,6 +321,7 @@ Sheet.prototype.init = function()
         {
             var shape = new Shape(this.options.shapes[s]);
             shape.draw();
+            shape.setPosition({x:shape.dimension.left,y:shape.dimension.top});// this is needed for middle point calculations and alignments
             shape.addHover();
         }
     }
@@ -1131,7 +1132,7 @@ Shape.prototype.connectTo = function(_endShape,_connProp)
         // if there is no connection property, it must be the first time call, check events override
         if (ev)
         {
-            if (ev.connectTo.override) {window[ev.connectTo.override].call(this,_endShape);return;}
+            if (ev.connectTo && ev.connectTo.override) {window[ev.connectTo.override].call(this,_endShape);return;}
         }
         _connProp = {"type":"TWOBEND","end":"FILLED","begin":null}; // default connection
     } // else go ahead with connection
@@ -1154,7 +1155,7 @@ Shape.prototype.connectTo = function(_endShape,_connProp)
 
 
     var cInfo = Utility.Shape.calculateConnectionPoints(_beginShape,_endShape,_connProp);
-    if (ev && ev.connectTo.click) {if (!cInfo.events) cInfo.events = {};
+    if (ev && ev.connectTo && ev.connectTo.click) {if (!cInfo.events) cInfo.events = {};
         cInfo.events.click = ev.connectTo.click;}
     var currentSheet = MagicBoard.sheetBook.currentSheet;
     currentSheet.addConnections(cInfo);
@@ -3049,6 +3050,277 @@ Utility.SheetBook.resizeHilighter = function(_dimension,_shape)
     var c2 = children[5].style; c2.left = "-12px"; c2.top = (h - 14)+"px";c2.cursor = "sw-resize";
     var c3 = children[6].style; c3.left = (w - 12)+"px"; c3.top = "-12px";c3.cursor = "ne-resize";
     var c4 = children[7].style; c4.left = (w - 12)+"px"; c4.top = (h - 14)+"px";c4.cursor = "nw-resize";
+}
+
+/**
+ *  This Utility function creates new Sheet from svg String
+ *  @static
+ *  @param {String} _name - name of the new Sheet
+ *  @param {String} _svg - String containing svg
+ *  @return - nothing
+ */
+Utility.SheetBook.createSheet = function(_name,_svg)
+{
+    var obj = {"options":{"name":_name},"shapes":[]};
+    var garbage = MagicBoard.sheetBook.garbage;
+    garbage.innerHTML = _svg; var svgElement = garbage.children;
+    
+
+    var components = [];
+    var getShapes = function(parent,shapeArray)
+    {
+        for (var c = 0, cLen = parent.children.length; c < cLen ; c++)
+        {
+            var child = parent.children[c];
+            var nodeName = child.nodeName;
+            if (nodeName === "g") {
+                  if (components.length > 0)
+                  {
+                      var shapeJson = Utility.createShapeJson(components);
+                      shapeArray.push(shapeJson);
+                  }
+                    components = [];
+                    Utility.temp = {minX:99999,maxX:0,minY:99999,maxY:0};
+                getShapes(child,shapeArray);
+            }
+            else
+            {
+                var component = {type:null,origDim:{},dimension:{},param:{},lines:[]}; //{type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"black","border-radius":8}};
+                component.type = nodeName;
+
+                for (var att, i = 0, atts = child.attributes, n = atts.length; i < n; i++){
+                    att = atts[i];
+                    switch (att.nodeName)
+                    {
+                        case "x": {var x = parseInt(att.nodeValue);component.origDim["x"] = x ;if (x < Utility.temp.minX) Utility.temp.minX = x ; if (x > Utility.temp.maxX) Utility.temp.maxX = x;break;}
+                        case "y": {var y = parseInt(att.nodeValue);component.origDim["y"] = y ;if (y < Utility.temp.minY) Utility.temp.minY = y ; if (y > Utility.temp.maxY) Utility.temp.maxY = y;break;}
+                        case "r": component.origDim["r"] = parseInt(att.nodeValue);break;
+                        case "cx": component.origDim["cx"] = parseInt(att.nodeValue);break;
+                        case "cy": component.origDim["cy"] = parseInt(att.nodeValue);break;
+                        case "rx": component.origDim["rx"] = parseFloat(att.nodeValue);break;
+                        case "ry": component.origDim["ry"] = parseFloat(att.nodeValue);break;
+                        case "width": component.origDim["width"] = parseInt(att.nodeValue);break;
+                        case "height": component.origDim["height"] = parseInt(att.nodeValue);break;
+                        case "d": {
+                            component.lines = Utility.parseD(att.nodeValue);
+                            break;
+                        }
+                        default: component.param[att.nodeName] = att.nodeValue;break;
+                    }
+                    
+                }
+                //
+                
+                var dimension = component.origDim;
+                if (component.type === "ellipse")
+                {
+                    var x = dimension.cx - dimension.rx; x = parseInt(x.toFixed(0));
+                    var y = dimension.cy - dimension.ry; y = parseInt(y.toFixed(0));
+                    var x1 = dimension.cx + dimension.rx;
+                    var y1 = dimension.cy + dimension.ry;
+                    if (x < Utility.temp.minX) {Utility.temp.minX = x ;} if (x > Utility.temp.maxX) Utility.temp.maxX = x;
+                    if (y < Utility.temp.minY) {Utility.temp.minY = y ;} if (y > Utility.temp.maxY) Utility.temp.maxY = y;
+                    if (x1 < Utility.temp.minX) Utility.temp.minX = x1 ; if (x1 > Utility.temp.maxX) Utility.temp.maxX = x1;
+                    if (y1 < Utility.temp.minY) Utility.temp.minY = y1 ; if (y1 > Utility.temp.maxY) Utility.temp.maxY = y1;
+                } else if (component.type === "circle")
+                {
+                    var x = dimension.cx - dimension.r;x = parseInt(x.toFixed(0));
+                    var y = dimension.cy - dimension.r;y = parseInt(y.toFixed(0));
+                    var x1 = dimension.cx + dimension.r;
+                    var y1 = dimension.cy + dimension.r;
+                    if (x < Utility.temp.minX) {Utility.temp.minX = x ;} if (x > Utility.temp.maxX) Utility.temp.maxX = x;
+                    if (y < Utility.temp.minY) {Utility.temp.minY = y ;} if (y > Utility.temp.maxY) Utility.temp.maxY = y;
+                    if (x1 < Utility.temp.minX) Utility.temp.minX = x1 ; if (x1 > Utility.temp.maxX) Utility.temp.maxX = x1;
+                    if (y1 < Utility.temp.minY) Utility.temp.minY = y1 ; if (y1 > Utility.temp.maxY) Utility.temp.maxY = y1;
+                } else if (component.type === "rect")
+                {
+                    var x = dimension.x;
+                    var y = dimension.y;
+                    var x1 = dimension.x + dimension.width;
+                    var y1 = dimension.y + dimension.height;
+                    if (x < Utility.temp.minX) {Utility.temp.minX = x ;} if (x > Utility.temp.maxX) Utility.temp.maxX = x;
+                    if (y < Utility.temp.minY) {Utility.temp.minY = y ;} if (y > Utility.temp.maxY) Utility.temp.maxY = y;
+                    if (x1 < Utility.temp.minX) Utility.temp.minX = x1 ; if (x1 > Utility.temp.maxX) Utility.temp.maxX = x1;
+                    if (y1 < Utility.temp.minY) Utility.temp.minY = y1 ; if (y1 > Utility.temp.maxY) Utility.temp.maxY = y1;
+                } else if (component.type === "text")
+                {
+                    component.innerHTML = child.innerHTML;
+                }
+                //
+                components.push(component);
+
+            }
+        }
+    }
+    
+    getShapes(svgElement[0],obj.shapes); // svg.children = garbage.children.children
+    if (components.length > 0)
+    {
+        var shapeJson = Utility.createShapeJson(components);
+        obj.shapes.push(shapeJson);
+    }
+    
+    var sheet1 = new Sheet(obj);
+    MagicBoard.sheetBook.addSheet(sheet1);
+    MagicBoard.sheetBook.setCurrentSheet(sheet1);
+    return sheet1;
+}
+
+Utility.createShapeJson = function(_components)
+{
+    var swidth = Utility.temp.maxX - Utility.temp.minX; var sheight = Utility.temp.maxY - Utility.temp.minY;
+    
+    var sh =  {
+    frame:{width:swidth,height:sheight,unit:"px",left:Utility.temp.minX,top:Utility.temp.minY},
+    param:{alignmentRails:true},
+    componentParms:[]
+    }
+    
+    for (var c = 0,cLen = _components.length; c < cLen;c++)
+    {
+        var _component = _components[c];
+        var _dimension = _component.origDim;
+        var perDim = _component.dimension;
+        for (var k in _dimension)
+        {
+            switch (k)
+            {
+                case "x": _dimension.x = _dimension.x - Utility.temp.minX; perDim.x = _dimension.x*100/swidth; break;
+                case "y": _dimension.y = _dimension.y - Utility.temp.minY; perDim.y = _dimension.y*100/sheight;break;
+                case "cx": _dimension.cx = _dimension.cx - Utility.temp.minX;perDim.cx = _dimension.cx*100/swidth; break;
+                case "cy": _dimension.cy = _dimension.cy - Utility.temp.minY; perDim.cy = _dimension.cy*100/sheight;break;
+                case "r": perDim.r = _dimension.r*100/swidth; break;
+                case "rx":  perDim.rx = _dimension.rx*100/swidth; break;
+                case "ry":  perDim.ry = _dimension.ry*100/sheight;break;
+                case "width": perDim.width = _dimension.width*100/swidth; break;
+                case "height":  perDim.height = _dimension.height*100/sheight;break;
+            }
+        }
+        
+        var _lines = _component.lines;lLen = _lines.length;
+        if (lLen) perDim.d = [];
+        for (var l = 0;l < lLen;l++)
+        {
+            var line = _lines[l];
+            var perLine = {op:line.op};
+            perDim.d.push(perLine);
+            
+            if (line.op === "Z") continue;
+            for (k in line)
+            {
+                if (k.indexOf("x") > -1)
+                {
+                    line[k] = line[k] - Utility.temp.minX;
+                    perLine[k] = line[k]*100/swidth;
+                } else if (k.indexOf("y") > -1)
+                {
+                    line[k] = line[k] - Utility.temp.minY;
+                    perLine[k] = line[k]*100/sheight;
+                }
+            }
+        }
+        sh.componentParms.push(_component);
+    }
+    
+    return sh;
+}
+
+/**
+ * This is an internal function only
+ * @static
+ */
+Utility.parseD = function(_dString)
+{
+    var seq = [];var seqPrev = [];
+    var dArray = _dString.split(" ");
+    var line=null; var lines = [];
+    for (var d = 0,dLen = dArray.length;d< dLen;d++)
+    {
+        var data = dArray[d];var op = data.substring(0,1); var coord = false;
+        if (!data) continue;
+        var opU = op.toUpperCase();
+        switch (opU)
+        {
+            case "A":
+                //rx ry x-axis-rotation large-arc-flag sweep-flag x y
+                seq = ["rx", "ry", "a1", "lf", "sf","x", "y"];
+                seqPrev = ["rx", "ry", "a1", "lf", "sf","x", "y"];
+                break;
+            case "C":
+                seq = ["x1", "y1", "x2", "y2", "x", "y"];
+                seqPrev = ["x1", "y1", "x2", "y2", "x", "y"];
+                break;
+            case "H":
+                seq = ["x"];
+                seqPrev = ["x"];
+                break;
+            case "M":
+                seq = ["x","y"];
+                seqPrev = ["x","y"];
+                break;
+            case "L":
+                seq = ["x","y"];
+                seqPrev = ["x","y"];
+                break;
+            case "Q":
+                seq = ["x1", "y1","x","y"];
+                seqPrev = ["x1", "y1","x","y"];
+                break;
+            case "S":
+                seq = ["x2", "y2", "x", "y"];
+                seqPrev = ["x2", "y2", "x", "y"];
+                break;
+            case "T":
+                seq = ["x","y"];
+                seqPrev = ["x","y"];
+                break;
+            case "V":
+                seq = ["y"];
+                seqPrev = ["y"];
+                break;
+            case "Z":
+                seq =[];
+                seqPrev =[];
+                break;
+                
+            default:
+                coord = true;
+                data = parseInt(data);
+                break;
+        }
+        
+        if (!coord) {
+            line = {"op":op};
+            lines.push(line);
+            if (data.length > 1) {data = parseInt(data.substring(1));coord = true;}
+        }
+        
+        if (coord)
+        {
+            if (seq.length === 0)
+            {
+                var sLen = seqPrev.length;
+                for (var s=0;s< sLen;s++)
+                {
+                    seq[s] = seqPrev[s];
+                }
+            }
+            var key = seq[0];
+            line[key] = data;
+            seq.splice(0,1);
+            if (key === "x" || key === "x1" || key === "x2")
+            {
+                if (data < Utility.temp.minX) Utility.temp.minX = data;
+                if (data > Utility.temp.maxX) Utility.temp.maxX = data;
+            } else if (key == "y" || key == "y1" || key == "y2")
+            {
+                if (data < Utility.temp.minY) Utility.temp.minY = data;
+                if (data > Utility.temp.maxY) Utility.temp.maxY = data;
+            }
+        }
+        
+    }
+    return lines;
 }
 /**
  *  This Utility function is for internal use
