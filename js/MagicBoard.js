@@ -3944,7 +3944,7 @@ Utility.Shape.defineConnectionCoordinates = function(_connectorLine,_cInfo)
 
 
     var connProp = _cInfo.connProp;
-    if (_cInfo.turningPoints.length > 0)
+    if (_cInfo.turningPoints && _cInfo.turningPoints.length > 0)
     {
         var minX = pos.x1; var minY = pos.y1; var maxX = pos.x1;  var maxY = pos.y1;
  
@@ -4182,10 +4182,18 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 //console.log("angle is "+a);
                 if (a < 47) a = 0;
                 else if (a > 46) a = 90;
-                //if (t === 1) p1 = {x:pos.x1,y:pos.y2};
-                // align to start
-                if (a === 90) turningPoints[t].x = p1.x;
-                else if (a === 0) turningPoints[t].y = p1.y;
+                if (t === 1)
+                {
+                    // align to start
+                    if (a === 90) turningPoints[t].x = pos.x1;
+                    else if (a === 0) turningPoints[t].y = pos.y1;
+                } else
+                {
+                    // align to start
+                    if (a === 90) turningPoints[t].x = p1.x;
+                    else if (a === 0) turningPoints[t].y = p1.y;
+                }
+
                 
                 if (t === (tLen - 2))
                 { // align to end
