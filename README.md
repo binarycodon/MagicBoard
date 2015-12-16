@@ -68,7 +68,6 @@ This project is created by BinaryCodon, Inc. The framework coding is completed b
 
 ## License
 
-<<<<<<< 
 Project is available under Affero GNU GPL License. Separate Commercial licensing is also available for commercial use. 
 =======
 
