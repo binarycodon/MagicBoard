@@ -163,25 +163,14 @@
    function applyConnector()
    {
        var list = $(".connActive");
-       var connectProp = {"type":"TWOBEND","end":null,"begin":null,"style":"SOLID"};
+       var connectProp = {"type":"DIRECT","end":null,"begin":null,"style":"SOLID"};
        for (var i = 0, iLen = list.length;i < iLen;i++)
        {
            var el = list[i];
            var id = el.getAttribute("id");
            switch (id)
            {
-               case "directConnectDiv":
-                       connectProp.type = "DIRECT";
-                   break;
-               case "horizagDiv":
-                   connectProp.type = "ONEBEND";
-                   break;
-               case "zigzagDiv":
-                   connectProp.type = "TWOBEND";
-                   break;
-               case "curvedDiv":
-                   connectProp.type = "CURVED";
-                   break;
+              
                case "oneFillArrowEndDiv":
                    connectProp.end = "FILLED";
                    break;
@@ -226,6 +215,18 @@
                    break;
                case "dashedDiv":
                    connectProp.style = "DASHED";
+                   break;
+                case "directConnectDiv":
+                   connectProp.type = "DIRECT";
+                   break;
+                case "horizagDiv":
+                   connectProp.type = "ONEBEND";
+                   break;
+                case "zigzagDiv":
+                   connectProp.type = "TWOBEND";
+                   break;
+                case "curvedDiv":
+                   connectProp.type = "CURVED";
                    break;
            }
        }
@@ -782,10 +783,12 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
       <!-- Line Type prompt -->
 
       <div style="position:absolute;left:35%;top:70px;width:262px;height:auto;z-index:100;display:none;background: white;" id="lineTypePrompt">
+
           <section class="panel panel-default"  style="width:100%;position:relative;">
               <button type="button" class="btn btn-primary" style="margin-left:20%;margin-top:10px;margin-bottom:10px;" onclick="applyConnector();$('#lineTypePrompt').hide();" >Apply</button>
                   <button type="button" class="btn btn-warning" style="margin-left:5%;margin-top:10px;margin-bottom:10px;" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">Cancel</button>
             </section>
+                    <!--
               <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
             <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
               <h4 class="panel-title">Connector Style</h4>
@@ -813,39 +816,8 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
              </div>
 
          </section>
-          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
-              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
-                  <h4 class="panel-title">End Arrow Style</h4>
-              </div>
-              <div>
-                  <div class="panel-body">
-                      <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Filled Arrow">
-                          <div style="font-size:7px;text-align:center">Filled</div>
-                          <img src="image/oneFillArrow.png" id="oneFillArrowEnd"  onclick="drawArrowE('oneFillArrowEnd')" class="imgIcon">
-                      </div>
-                      <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Circle">
-                          <div style="font-size:7px;text-align:center">Round Head</div>
-                          <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowE('oneRoundEnd')" class="imgIcon">
-                      </div>
-                      <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
-                          <div style="font-size:7px;text-align:center">Hollow</div>
-                          <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowE('oneHollowArrowEnd')" class="imgIcon">
-                      </div>
-                      <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Regular Arrow">
-                          <div style="font-size:7px;text-align:center">Arrow</div>
-                          <img src="image/oneArrow.png" id="oneArrowEnd"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
-                      </div>
-                      <div id="diamondFilledEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
-                          <div style="font-size:7px;text-align:center">Diamond</div>
-                          <img src="image/oneArrow.png" id="diamondFilledEnd"  onclick="drawArrowE('diamondFilledEnd')" class="imgIcon">
-                              </div>
-                      <div id="diamondHollowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
-                          <div style="font-size:7px;text-align:center">Diamond</div>
-                          <img src="image/oneArrow.png" id="diamondHollowEnd"  onclick="drawArrowE('diamondHollowEnd')" class="imgIcon">
-                              </div>
-                  </div>
-              </div>
-          </section>
+              -->
+
           <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
               <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
                   <h4 class="panel-title">Begin Arrow Style</h4>
@@ -877,6 +849,39 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                           <img src="image/oneArrow.png" id="diamondHollowBegin"  onclick="drawArrowB('diamondHollowBegin')" class="imgIcon">
                       </div>
 
+                  </div>
+              </div>
+          </section>
+          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
+                  <h4 class="panel-title">End Arrow Style</h4>
+              </div>
+              <div>
+                  <div class="panel-body">
+                      <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Filled Arrow">
+                          <div style="font-size:7px;text-align:center">Filled</div>
+                          <img src="image/oneFillArrow.png" id="oneFillArrowEnd"  onclick="drawArrowE('oneFillArrowEnd')" class="imgIcon">
+                              </div>
+                      <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Circle">
+                          <div style="font-size:7px;text-align:center">Round Head</div>
+                          <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowE('oneRoundEnd')" class="imgIcon">
+                              </div>
+                      <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
+                          <div style="font-size:7px;text-align:center">Hollow</div>
+                          <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowE('oneHollowArrowEnd')" class="imgIcon">
+                              </div>
+                      <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Regular Arrow">
+                          <div style="font-size:7px;text-align:center">Arrow</div>
+                          <img src="image/oneArrow.png" id="oneArrowEnd"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
+                              </div>
+                      <div id="diamondFilledEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
+                          <div style="font-size:7px;text-align:center">Diamond</div>
+                          <img src="image/oneArrow.png" id="diamondFilledEnd"  onclick="drawArrowE('diamondFilledEnd')" class="imgIcon">
+                              </div>
+                      <div id="diamondHollowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
+                          <div style="font-size:7px;text-align:center">Diamond</div>
+                          <img src="image/oneArrow.png" id="diamondHollowEnd"  onclick="drawArrowE('diamondHollowEnd')" class="imgIcon">
+                              </div>
                   </div>
               </div>
           </section>

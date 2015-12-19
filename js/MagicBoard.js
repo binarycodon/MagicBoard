@@ -531,6 +531,28 @@ Sheet.prototype.getImage = function(_type)
 }
 
 /**
+ * This Function returns existing connections between two shapes
+ *  @param {Shape} -  _beginShape
+ *  @param {Shape} -  _endShape
+ *  @returns {Object} - cInfo
+ */
+Sheet.prototype.getConnection = function(_beginShape, _endShape)
+{
+
+    var conn = this.connections;
+    var cLen = conn.length;
+    var found = false;
+    for (var i = 0; i < cLen;i++)
+    {
+        var cI = conn[i];
+        if (cI.beginShape === beginShape && cI.endShape === endShape)
+        {
+            return cI;
+        }
+    }
+}
+
+/**
  * This Function adds connections between two shapes
  *  @param {Object} _cInfo - Has the following format {"beginShape":shape,"endShape":shape,pos:{x1:0,y1:0,x2:100,y2:100}}
  *  @returns - nothing
@@ -1080,9 +1102,9 @@ Shape.prototype.refreshConnection = function(_context)
     for (var b = 0; b < bLen;b++)
     {
         var beginShape =  beginShapes[b];
-
-        var cInfo = Utility.Shape.calculateConnectionPoints(beginShape,this);
-        currentSheet.addConnections(cInfo);
+        // get existing cInfo
+        var cInfo = currentSheet.getConnection(beginShape,this);
+        Utility.Shape.reCalculateConnectionPoints(cInfo);
         currentSheet.drawConnections(_context);
     }
 
@@ -1092,9 +1114,11 @@ Shape.prototype.refreshConnection = function(_context)
     for (var e = 0; e < eLen ; e++)
     {
         endShape = endShapes[e];
-        var cInfo = Utility.Shape.calculateConnectionPoints(this,endShape);
+        
+        var cInfo = currentSheet.getConnection(this,endShape);
+        Utility.Shape.reCalculateConnectionPoints(cInfo);
 
-        currentSheet.addConnections(cInfo);
+        //currentSheet.addConnections(cInfo);
         currentSheet.drawConnections( _context);
     }
 
@@ -3915,6 +3939,311 @@ Utility.Shape.unblockGrids = function(_shape,allGrids)
     //Utility.Sheet.drawCourseGrid(_shape.currentSheet);
 
 }
+
+/**
+ *  This Utility function is used to calculate the best connection points between two shapes
+ *  @param {Shape} _beginShape
+ *  @param {Shape} )_endShape
+ *  @return {Object} connectionInfo - is used to create ConnectorLine
+ *  @static
+ */
+Utility.Shape.reCalculateConnectionPoints = function(_cInfo)
+{
+    var beginShape = _cInfo.beginShape; var endShape = _cInfo.endShape;
+    // calculate pos and calculate turning points
+    var pos = _cInfo.pos;
+    
+    var startLabel = pos.pointStart.label;
+    var endLabel = pos.pointEnd.label;
+    
+    var frame1 = beginShape.frame.edgePoints;var frame2 = endShape.frame.edgePoints;
+    pos.x1 = frame1[startLabel].x;pos.y1 = frame1[startLabel].y;
+    pos.x2 = frame2[endLabel].x;pos.y2 = frame2[endLabel].y;
+    
+    var turningPoints = _cInfo.turningPoints; var p1 = {x:pos.x1,y:pos.y1,angle:pos.startAngle};
+    for (var t =0, tLen = turningPoints.length;t < tLen;t++)
+    {
+        var p2 = turningPoints[t];
+        var angle = p1.angle;
+        if (angle === 0) p2.y = p1.y;
+        else p2.x = p1.x;
+        
+        p1 = p2;
+    }
+    var p2 = {x:pos.x2,y:pos.y2};
+    for (var t = turningPoints.length - 1;t > -1;t--)
+    {
+        var p1 = turningPoints[t];
+        var angle = p1.angle;
+        if (angle === 0) p1.y = p2.y;
+        else p1.x = p2.x;
+        p2 = p1;
+    }
+}
+
+/**
+ *  This Utility function is used to calculate the best connection points between two shapes
+ *  @param {Shape} _beginShape
+ *  @param {Shape} _endShape
+ *  @return {Object} connectionInfo - is used to create ConnectorLine
+ *  @static
+ */
+Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connProp)
+{
+    /*
+     if (this.connected && this.connected.connectorShape)
+     {
+     this.connected.connectorShape.deleteShape();
+     }
+     */
+    
+    
+    var beginDim = _beginShape.getDimension();
+    var endDim = _endShape.getDimension();
+    
+    var connectingPoints = null;  var bEdge = beginDim.edgePoints; var eEdge = endDim.edgePoints;
+    var x1,x2,y1,y2;var turningPoints = [];
+    // first see if path is defined
+    
+    if (MagicBoard.scratch.path.length > 3)
+    {
+        var lines = Utility.identifyLines(MagicBoard.scratch.path);
+        var turningPoints = [];
+        for (var l =0, lLen = lines.length; l < lLen ; l++)
+        {
+            var point = lines[l].point;
+            point.angle = lines[l].angle;
+            turningPoints.push(point);
+        }
+        
+        /*
+         
+         */
+        turningPoints.push(MagicBoard.scratch.path[MagicBoard.scratch.path.length - 1]);
+        // find out which line is intersecting for begin object
+        
+        tLen = turningPoints.length;
+        var pos = {}; var p1 = turningPoints[0]; var p2 = turningPoints[1];
+        if (Utility.isIntersecting(bEdge.c1,bEdge.c2,p1,p2) )
+        {
+            pos.x1 = bEdge.m12.x;pos.y1 = bEdge.m12.y;pos.pointStart = {"label":"m12","x":pos.x1,"y":pos.y1};
+        } else if (Utility.isIntersecting(bEdge.c2,bEdge.c3,p1,p2) )
+        {
+            //var mP = (bEdge.c2.y - bEdge.c3.y)/(bEdge.c2.x - bEdge.c3.x);
+            //var P = bEdge.c3.y - mP*bEdge.c3.x;
+            
+            //var nQ = (p1.y - p2.y)/(p1.x - p2.x);
+            //var Q = p2.y - nQ * p2.x;
+            
+            // intersect point x = (nQ - nP)/(mP - mQ)   & y = mP * x + nP     or     y = mQ * x + nQ
+            pos.x1 = bEdge.m23.x;pos.y1 = bEdge.m23.y;pos.pointStart = {"label":"m23","x":pos.x1,"y":pos.y1};
+        } else if (Utility.isIntersecting(bEdge.c3,bEdge.c4,p1,p2) )
+        {
+            pos.x1 = bEdge.m34.x;pos.y1 = bEdge.m34.y;pos.pointStart = {"label":"m34","x":pos.x1,"y":pos.y1};
+        } else if (Utility.isIntersecting(bEdge.c4,bEdge.c1,p1,p2) )
+        {
+            pos.x1 = bEdge.m41.x;pos.y1 = bEdge.m41.y;pos.pointStart = {"label":"m41","x":pos.x1,"y":pos.y1};
+        }
+        
+        p1 = turningPoints[tLen - 1]; p2 = turningPoints[tLen - 2];
+        if (Utility.isIntersecting(eEdge.c1,eEdge.c2,p1,p2) )
+        {
+            pos.x2 = eEdge.m12.x;pos.y2 = eEdge.m12.y;pos.pointEnd = {"label":"m12","x":pos.x2,"y":pos.y2};
+        } else if (Utility.isIntersecting(eEdge.c2,eEdge.c3,p1,p2) )
+        {
+            pos.x2 = eEdge.m23.x;pos.y2 = eEdge.m23.y;pos.pointEnd = {"label":"m23","x":pos.x2,"y":pos.y2};
+        } else if (Utility.isIntersecting(eEdge.c3,eEdge.c4,p1,p2) )
+        {
+            pos.x2 = eEdge.m34.x;pos.y2 = eEdge.m34.y;pos.pointEnd = {"label":"m34","x":pos.x2,"y":pos.y2};
+        } else if (Utility.isIntersecting(eEdge.c4,eEdge.c1,p1,p2) )
+        {
+            pos.x2 = eEdge.m41.x;pos.y2 = eEdge.m41.y;pos.pointEnd = {"label":"m41","x":pos.x2,"y":pos.y2};
+        }
+        
+        // align turning points to starting and ending points coordinates
+        tLen = turningPoints.length;
+        if (tLen > 2)
+        {
+            //
+            
+            var p1 = {x:pos.x1,y:pos.y1,angle:turningPoints[0].angle};
+            // now remove first and last points
+            turningPoints.splice((tLen - 1),1);turningPoints.splice(0,1);
+            for (var t =0, tLen = turningPoints.length;t < tLen;t++)
+            {
+                var p2 = turningPoints[t];
+                var angle = p1.angle;
+                if (angle === 0) p2.y = p1.y;
+                else p2.x = p1.x;
+                
+                p1 = p2;
+            }
+            var p2 = {x:pos.x2,y:pos.y2};
+            for (var t = turningPoints.length - 1;t > -1;t--)
+            {
+                var p1 = turningPoints[t];
+                var angle = p1.angle;
+                if (angle === 0) p1.y = p2.y;
+                else p1.x = p2.x;
+                p2 = p1;
+            }
+            
+        } else turningPoints = [];
+        
+        //console.log(turningPoints);// finally
+        
+        // fix the points based on angles
+        
+        return {beginShape:_beginShape,endShape:_endShape,pos:pos,turningPoints:turningPoints,"connProp":_connProp};
+        
+    }
+    
+    // always  prefer vertical face of the originator
+    // if the terminator's vertical face is available then use it
+    // else use the closest horizontal face
+    
+    // find the closest connection point and join them
+    // the shapes could in be any 8 positions based on center point
+    //
+    //          1   |  2  |  3  |  4   |      5
+    //      -----------------------------------
+    //          6   |  7  |  X  |  8   |      9
+    //      -----------------------------------
+    //          10  |  11 |  12 |  13  |     14
+    
+    var orientation = "horiz";
+    // find zone
+    
+    if (bEdge.c1.x > eEdge.c2.x) // the endShape is on the left  (1 6,7, 10)
+    {
+        var diffX_41_23 = bEdge.m41.x - eEdge.m23.x;
+        
+        if (diffX_41_23 > 50)
+        {
+            x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+            x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+        } else
+        {
+            var diffY_41_23 = bEdge.m41.y - eEdge.m23.y;
+            
+            var diffX_12_23 = bEdge.m12.x - eEdge.m23.x;
+            var diffY_12_23 = bEdge.m12.y - eEdge.m23.y;
+            
+            var diffX_34_23 = bEdge.m12.x - eEdge.m23.x;
+            var diffY_34_23 = bEdge.m12.y - eEdge.m23.y;
+            
+            if (diffY_12_23 > 50)
+            {
+                if ((bEdge.m12.x - eEdge.m34.x) > 50)
+                {
+                    x1 = bEdge.m12.x;y1 = bEdge.m12.y;
+                    x2 = eEdge.m34.x;y2 = eEdge.m34.y;
+                    orientation = "vert";
+                } else
+                {
+                    x1 = bEdge.m12.x;y1 = bEdge.m12.y;
+                    x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+                    orientation = "horizvert";
+                }
+                
+            } else if (diffY_34_23 > 50)
+            {
+                
+                x1 = bEdge.m34.x;y1 = bEdge.m34.y;
+                x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+                
+                orientation = "horizvert";
+            } else
+            {
+                if (diffY_41_23 > 50)
+                {
+                    var diffY_41_34 = bEdge.m41.y - eEdge.m34.y;
+                    if (diffY_41_34 > 50)
+                    {
+                        x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+                        x2 = eEdge.m34.x;y2 = eEdge.m34.y;
+                    } else
+                    {
+                        x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+                        x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+                    }
+                } else
+                {
+                    x1 = bEdge.m41.x;y1 = bEdge.m41.y;
+                    x2 = eEdge.m23.x;y2 = eEdge.m23.y;
+                }
+                
+            }
+        }
+        
+    } else if (bEdge.c2.x < eEdge.c1.x)  // end shape is on the right  (5,8, 9 14)
+    {
+        var diffX_23_41 = bEdge.m41.x - eEdge.m23.x;
+        
+        if (diffX_23_41 > 50)
+        {
+            x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+            x2 = eEdge.m41.x;y2 = eEdge.m41.y;
+        } else
+        {
+            var diffY_23_41 = bEdge.m23.y - eEdge.m41.y;
+            
+            var diffX_23_12 = bEdge.m23.x - eEdge.m12.x;
+            var diffY_23_12 = bEdge.m23.y - eEdge.m12.y;
+            
+            var diffX_23_34 = bEdge.m23.x - eEdge.m34.x;
+            var diffY_23_34 = bEdge.m23.y - eEdge.m34.y;
+            
+            if (Math.abs(diffY_23_34) > 50)
+            {
+                x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+                if (diffY_23_34 > 0)
+                {
+                    x2 = eEdge.m34.x;y2 = eEdge.m34.y;
+                } else
+                {
+                    x2 = eEdge.m12.x;y2 = eEdge.m12.y;
+                }
+                
+                orientation = "horizvert";
+            } else if (diffY_23_12 > 50)
+            {
+                if ( (eEdge.m41.x - bEdge.m23.x) > 50)
+                {
+                    x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+                    x2 = eEdge.m41.x;y2 = eEdge.m41.y;
+                } else
+                {
+                    x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+                    x2 = eEdge.m12.x;y2 = eEdge.m12.y;
+                    orientation = "horizvert";
+                }
+                
+            } else
+            {
+                x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+                x2 = eEdge.m41.x;y2 = eEdge.m41.y;
+            }
+        }
+        //x1 = bEdge.m23.x;y1 = bEdge.m23.y;
+        //x2 = eEdge.m41.x;y2 = eEdge.m41.y;
+        
+    } else if (bEdge.c1.y > eEdge.c3.y) // the endShape is on the top   (2,3,4)
+    {
+        x1 = bEdge.m12.x;y1 = bEdge.m12.y;
+        x2 = eEdge.m34.x;y2 = eEdge.m34.y;
+        
+        orientation = "vert";
+    } else   // end shape is in the bottom (11,12,13)
+    {
+        x1 = bEdge.m34.x;y1 = bEdge.m34.y;
+        x2 = eEdge.m12.x;y2 = eEdge.m12.y;
+        orientation = "vert";
+    }
+    
+    return {beginShape:_beginShape,endShape:_endShape,pos:{x1:x1,x2:x2,y1:y1,y2:y2},"orientation":orientation,"connProp":_connProp};
+}
+
 /**
  *  This Utility function is used to calculate the best connection points between two shapes
  *  @param {Shape} _beginShape
@@ -3965,6 +4294,9 @@ Utility.Shape.defineConnectionCoordinates = function(_connectorLine,_cInfo)
         
         if ((_connectorLine.frame.width < (maxX - minX + 20))) {_connectorLine.frame.width = (maxX - minX + 20);width = _connectorLine.frame.width;}
         if (_connectorLine.frame.height < (maxY - minY + 20)) {_connectorLine.frame.height = (maxY - minY + 20);height = _connectorLine.frame.height;}
+        
+        if (left > minX) { left = minX - 10;_connectorLine.frame.left = left;}
+        if (top > minY)  { top = minY- 10;_connectorLine.frame.top = top;}
  
         // recalculate starting point based on new width and height;
         d[0] = {"op":"M","x":(pos.x1 - left)*100/width,"y":(pos.y1 - top)*100/height};
@@ -4052,317 +4384,7 @@ Utility.Shape.defineConnectionCoordinates = function(_connectorLine,_cInfo)
     d.push({"op":"L","x":(x2 - left)*100/width,"y":(y2 - top)*100/height});
     return {"d":d,"lines":lines};
 }
-/**
- *  This Utility function is used to calculate the best connection points between two shapes
- *  @param {Shape} _beginShape
- *  @param {Shape} )endShape
- *  @return {Object} connectionInfo - is used to create ConnectorLine
- *  @static
- */
-Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connProp)
-{
-    /*
-     if (this.connected && this.connected.connectorShape)
-     {
-     this.connected.connectorShape.deleteShape();
-     }
-     */
 
-    
-    var beginDim = _beginShape.getDimension();
-    var endDim = _endShape.getDimension();
-
-    var connectingPoints = null;  var bEdge = beginDim.edgePoints; var eEdge = endDim.edgePoints;
-    var x1,x2,y1,y2;var turningPoints = [];
-    // first see if path is defined
-    if (MagicBoard.scratch.path.length > 3)
-    {
-        // figure out type of connections
-        //Utility.isIntersecting();
-        turningPoints = [MagicBoard.scratch.path[0]];
-        var prevPos = MagicBoard.scratch.path[0]; var prevSlope ,currentSlope;
-        var pLen = MagicBoard.scratch.path.length - 1;
-        for (var p = 1;p < pLen;p++)
-        {
-            var pos = MagicBoard.scratch.path[p];
-            var dx = pos.x - prevPos.x; var dy = pos.y - prevPos.y;
-            var dis = Math.sqrt( dx * dx + dy * dy );
-            if (dis > 25)
-            {
-                currentSlope = Math.atan((pos.y-prevPos.y)/(pos.x-prevPos.x))*180/Math.PI;
-                if (!prevSlope) prevSlope = currentSlope;
-                //console.log("diff is -- "+Math.abs(Math.abs(prevSlope) - Math.abs(currentSlope)));
-                if (Math.abs(Math.abs(prevSlope) - Math.abs(currentSlope)) > 25)
-                {
-                    // it is turning point
-                    //console.log("---------------  adding to turning point ");
-                    turningPoints.push(prevPos);
-                }
-                prevSlope = currentSlope;
-                prevPos = pos;
-            }
-        }
-        turningPoints.push(MagicBoard.scratch.path[pLen]);
-        MagicBoard.scratch.path = [];
-        // fix the turning points
-        var tLen = turningPoints.length;
-        var p2 = turningPoints[tLen - 1];var p1 = turningPoints[tLen - 2];
-        var prevSlope = Math.abs(Math.atan((p2.y-p1.y)/(p2.x-p1.x))*180/Math.PI);
-
-        
-        for (var t = tLen - 3;t > -1;t--)
-        {
-             p2 = p1;
-            if (t < 0) break;
-             p1 = turningPoints[t];
-            var currentSlope = Math.abs(Math.atan((p2.y-p1.y)/(p2.x-p1.x))*180/Math.PI);
-
-            
-            //console.log("Second round diff is -- "+Math.abs(currentSlope - prevSlope));
-            if (Math.abs(currentSlope - prevSlope) < 37)
-            {
-                // remove middle point
-                //console.log("---------------  removing from turning point ");
-                turningPoints.splice((t+1),1);
-                p2 = turningPoints[t+1];
-                prevSlope = Math.abs(Math.atan((p2.y-p1.y)/(p2.x-p1.x))*180/Math.PI);
-                
-            } else prevSlope = currentSlope;
-        }
-        
-        // find out which line is intersecting for begin object
-        
-        tLen = turningPoints.length;
-        var pos = {}; var p1 = turningPoints[0]; var p2 = turningPoints[1];
-        if (Utility.isIntersecting(bEdge.c1,bEdge.c2,p1,p2) )
-        {
-            pos.x1 = bEdge.m12.x;pos.y1 = bEdge.m12.y;
-        } else if (Utility.isIntersecting(bEdge.c2,bEdge.c3,p1,p2) )
-        {
-            //var mP = (bEdge.c2.y - bEdge.c3.y)/(bEdge.c2.x - bEdge.c3.x);
-            //var P = bEdge.c3.y - mP*bEdge.c3.x;
-           
-            //var nQ = (p1.y - p2.y)/(p1.x - p2.x);
-            //var Q = p2.y - nQ * p2.x;
-            
-            // intersect point x = (nQ - nP)/(mP - mQ)   & y = mP * x + nP     or     y = mQ * x + nQ
-            pos.x1 = bEdge.m23.x;pos.y1 = bEdge.m23.y;
-        } else if (Utility.isIntersecting(bEdge.c3,bEdge.c4,p1,p2) )
-        {
-            pos.x1 = bEdge.m34.x;pos.y1 = bEdge.m34.y;
-        } else if (Utility.isIntersecting(bEdge.c4,bEdge.c1,p1,p2) )
-        {
-            pos.x1 = bEdge.m41.x;pos.y1 = bEdge.m41.y;
-        }
-        
-        p1 = turningPoints[tLen - 1]; p2 = turningPoints[tLen - 2];
-        if (Utility.isIntersecting(eEdge.c1,eEdge.c2,p1,p2) )
-        {
-            pos.x2 = eEdge.m12.x;pos.y2 = eEdge.m12.y;
-        } else if (Utility.isIntersecting(eEdge.c2,eEdge.c3,p1,p2) )
-        {
-            pos.x2 = eEdge.m23.x;pos.y2 = eEdge.m23.y;
-        } else if (Utility.isIntersecting(eEdge.c3,eEdge.c4,p1,p2) )
-        {
-            pos.x2 = eEdge.m34.x;pos.y2 = eEdge.m34.y;
-        } else if (Utility.isIntersecting(eEdge.c4,eEdge.c1,p1,p2) )
-        {
-            pos.x2 = eEdge.m41.x;pos.y2 = eEdge.m41.y;
-        }
-        
-        // align turning points to starting and ending points coordinates
-        tLen = turningPoints.length;
-        if (tLen > 2)
-        {
-            p1 = turningPoints[0];
-            for (var t = 1; t < tLen - 1;t++)
-            {
-                p2 = turningPoints[t];
-                var a = Math.abs(Math.atan((p2.y-p1.y)/(p2.x-p1.x))*180/Math.PI);
-                //console.log("angle is "+a);
-                if (a < 47) a = 0;
-                else if (a > 46) a = 90;
-                if (t === 1)
-                {
-                    // align to start
-                    if (a === 90) turningPoints[t].x = pos.x1;
-                    else if (a === 0) turningPoints[t].y = pos.y1;
-                } else
-                {
-                    // align to start
-                    if (a === 90) turningPoints[t].x = p1.x;
-                    else if (a === 0) turningPoints[t].y = p1.y;
-                }
-
-                
-                if (t === (tLen - 2))
-                { // align to end
-                    var a1 = Math.abs(Math.atan((pos.y2-p2.y)/(pos.x2-p2.x))*180/Math.PI);
-                    if (a1 < 47) a1 = 0;
-                    else if (a1 > 46) a1 = 90;
-                    if (a1 === 90) turningPoints[t].x = pos.x2;
-                    else if (a1 === 0) turningPoints[t].y = pos.y2;
-                }
-                p1 = p2;
-
-            }
-            // now remove first and last points
-            turningPoints.splice((tLen - 1),1);turningPoints.splice(0,1);
-        } else turningPoints = [];
-
-        //console.log(turningPoints);// finally
-        
-        // fix the points based on angles
-        
-        return {beginShape:_beginShape,endShape:_endShape,pos:pos,turningPoints:turningPoints,"connProp":_connProp};
-        
-    }
-    
-    // always  prefer vertical face of the originator
-    // if the terminator's vertical face is available then use it
-    // else use the closest horizontal face
-
-    // find the closest connection point and join them
-    // the shapes could in be any 8 positions based on center point
-    //
-    //          1   |  2  |  3  |  4   |      5
-    //      -----------------------------------
-    //          6   |  7  |  X  |  8   |      9
-    //      -----------------------------------
-    //          10  |  11 |  12 |  13  |     14
-
-    var orientation = "horiz";
-    // find zone
-   
-    if (bEdge.c1.x > eEdge.c2.x) // the endShape is on the left  (1 6,7, 10)
-    {
-        var diffX_41_23 = bEdge.m41.x - eEdge.m23.x;
-
-        if (diffX_41_23 > 50)
-        {
-            x1 = bEdge.m41.x;y1 = bEdge.m41.y;
-            x2 = eEdge.m23.x;y2 = eEdge.m23.y;
-        } else
-        {
-            var diffY_41_23 = bEdge.m41.y - eEdge.m23.y;
-
-            var diffX_12_23 = bEdge.m12.x - eEdge.m23.x;
-            var diffY_12_23 = bEdge.m12.y - eEdge.m23.y;
-
-            var diffX_34_23 = bEdge.m12.x - eEdge.m23.x;
-            var diffY_34_23 = bEdge.m12.y - eEdge.m23.y;
-
-            if (diffY_12_23 > 50)
-            {
-                if ((bEdge.m12.x - eEdge.m34.x) > 50)
-                {
-                    x1 = bEdge.m12.x;y1 = bEdge.m12.y;
-                    x2 = eEdge.m34.x;y2 = eEdge.m34.y;
-                    orientation = "vert";
-                } else
-                {
-                    x1 = bEdge.m12.x;y1 = bEdge.m12.y;
-                    x2 = eEdge.m23.x;y2 = eEdge.m23.y;
-                    orientation = "horizvert";
-                }
-
-            } else if (diffY_34_23 > 50)
-            {
-
-                x1 = bEdge.m34.x;y1 = bEdge.m34.y;
-                x2 = eEdge.m23.x;y2 = eEdge.m23.y;
-
-                orientation = "horizvert";
-            } else
-            {
-                if (diffY_41_23 > 50)
-                {
-                    var diffY_41_34 = bEdge.m41.y - eEdge.m34.y;
-                    if (diffY_41_34 > 50)
-                    {
-                        x1 = bEdge.m41.x;y1 = bEdge.m41.y;
-                        x2 = eEdge.m34.x;y2 = eEdge.m34.y;
-                    } else
-                    {
-                        x1 = bEdge.m41.x;y1 = bEdge.m41.y;
-                        x2 = eEdge.m23.x;y2 = eEdge.m23.y;
-                    }
-                } else
-                {
-                    x1 = bEdge.m41.x;y1 = bEdge.m41.y;
-                    x2 = eEdge.m23.x;y2 = eEdge.m23.y;
-                }
-
-            }
-        }
-
-    } else if (bEdge.c2.x < eEdge.c1.x)  // end shape is on the right  (5,8, 9 14)
-    {
-        var diffX_23_41 = bEdge.m41.x - eEdge.m23.x;
-
-        if (diffX_23_41 > 50)
-        {
-            x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-            x2 = eEdge.m41.x;y2 = eEdge.m41.y;
-        } else
-        {
-            var diffY_23_41 = bEdge.m23.y - eEdge.m41.y;
-
-            var diffX_23_12 = bEdge.m23.x - eEdge.m12.x;
-            var diffY_23_12 = bEdge.m23.y - eEdge.m12.y;
-
-            var diffX_23_34 = bEdge.m23.x - eEdge.m34.x;
-            var diffY_23_34 = bEdge.m23.y - eEdge.m34.y;
-
-            if (Math.abs(diffY_23_34) > 50)
-            {
-                x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-                if (diffY_23_34 > 0)
-                {
-                    x2 = eEdge.m34.x;y2 = eEdge.m34.y;
-                } else
-                {
-                    x2 = eEdge.m12.x;y2 = eEdge.m12.y;
-                }
-
-                orientation = "horizvert";
-            } else if (diffY_23_12 > 50)
-            {
-                if ( (eEdge.m41.x - bEdge.m23.x) > 50)
-                {
-                    x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-                    x2 = eEdge.m41.x;y2 = eEdge.m41.y;
-                } else
-                {
-                    x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-                    x2 = eEdge.m12.x;y2 = eEdge.m12.y;
-                    orientation = "horizvert";
-                }
-
-            } else
-            {
-                x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-                x2 = eEdge.m41.x;y2 = eEdge.m41.y;
-            }
-        }
-        //x1 = bEdge.m23.x;y1 = bEdge.m23.y;
-        //x2 = eEdge.m41.x;y2 = eEdge.m41.y;
-
-    } else if (bEdge.c1.y > eEdge.c3.y) // the endShape is on the top   (2,3,4)
-    {
-        x1 = bEdge.m12.x;y1 = bEdge.m12.y;
-        x2 = eEdge.m34.x;y2 = eEdge.m34.y;
-
-        orientation = "vert";
-    } else   // end shape is in the bottom (11,12,13)
-    {
-        x1 = bEdge.m34.x;y1 = bEdge.m34.y;
-        x2 = eEdge.m12.x;y2 = eEdge.m12.y;
-        orientation = "vert";
-    }
-
-    return {beginShape:_beginShape,endShape:_endShape,pos:{x1:x1,x2:x2,y1:y1,y2:y2},"orientation":orientation,"connProp":_connProp};
-}
 
 /**
  *  This Utility function is used to remove connection between two shapes
@@ -4386,6 +4408,65 @@ Utility.Sheet.removeConnection = function(_sheet,_beginShape,_endShape)
             return ;
         }
     }
+}
+Utility.identifyLines = function(_path)
+{
+    // calculateAngles,
+    //var pos1 = MagicBoard.scratch.path[p-1];var dx1 = pos.x - pos1.x; var dy1 = pos.y - pos1.y;
+    //console.log(Math.atan((pos.y-pos1.y)/(pos.x-pos1.x))*180/Math.PI+","+Math.sqrt( dx1 * dx1 + dy1 * dy1 ) + ","+pos.x+","+pos.y);
+    var pLen = _path.length;
+    if (pLen < 3) return []; // mininum three points needed
+    var lines = [];var nextLine = {"point":null,"length":0,"angle":null};
+    
+    
+    var pos0 = _path[0];var currentLine = {id:0,"point":pos0,"length":0,"angle":null,active:false};
+    for (var p = 1; p < pLen ; p++)
+    {
+        var pos1 = _path[p];
+        
+        var angle = Math.abs(Math.atan( (pos1.y - pos0.y)/(pos1.x - pos0.x)  )*180/Math.PI);
+        if (angle == NaN) continue;
+        //pos1.angle = angle; // for debugging purpose
+        
+        angle = Math.round(angle/45) * 45; // round it to 45 degrees
+        //pos1.curedAngle = angle; // for debugging purpose
+        
+        if (currentLine.active)
+        {
+            var diff = Math.abs(Math.abs(angle) - Math.abs(currentLine.angle));
+            if (diff > 0) // observatory period
+            {
+                if (!nextLine.active) {
+                    nextLine.point = pos1;nextLine.angle = angle; nextLine.active = true;
+                }
+                var dx = (pos1.x - nextLine.point.x); var dy = (pos1.y - nextLine.point.y);
+                nextLine.length =  Math.sqrt(dx * dx + dy*dy);
+                if (nextLine.length > 29)
+                {
+                    lines.push(currentLine);
+                    nextLine.id = currentLine.id+1;
+                    currentLine =  nextLine; currentLine.angle = angle;
+                    nextLine = {"point":null,"length":0,"angle":null,active:false};
+                }
+            } else
+            {
+                if (nextLine.active) nextLine = {"point":null,"length":0,"angle":null,active:false}; // throw it out
+                
+                var dx = (pos1.x - currentLine.point.x); var dy = (pos1.y - currentLine.point.y);
+                currentLine.length =  Math.sqrt(dx * dx + dy*dy);
+            }
+        } else {currentLine.angle = angle;currentLine.active = true;}
+        pos0 = pos1;
+    }
+    if (lines.length === 0 || (currentLine.id !== lines[lines.length - 1])) lines.push(currentLine);
+    
+    /*
+    for (var p = _path.length -1;p > -1; p--) console.log("("+_path[p].x +","+_path[p].y+") - "+_path[p].curedAngle+" - "+_path[p].angle);
+    
+    console.log(lines);
+    */
+    
+    return lines;
 }
 
 /**
