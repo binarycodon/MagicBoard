@@ -1248,6 +1248,7 @@ Shape.prototype.connectTo = function(_endShape,_connProp)
 
 
     var cInfo = Utility.Shape.calculateConnectionPoints(_beginShape,_endShape,_connProp);
+	if (!cInfo) return; // can't connect, this can happen if there were issues calculatingConnection points
     if (ev && ev.connectTo && ev.connectTo.click) {if (!cInfo.events) cInfo.events = {};
         cInfo.events.click = ev.connectTo.click;}
     var currentSheet = MagicBoard.sheetBook.currentSheet;
@@ -4227,7 +4228,10 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
         } else if (Utility.isIntersecting(eEdge.c4,eEdge.c1,p1,p2) )
         {
             pos.x2 = eEdge.m41.x;pos.y2 = eEdge.m41.y;pos.pointEnd = {"label":"m41","x":pos.x2,"y":pos.y2};
-        }
+        } else{
+			console.log("No endShape to connect to");
+			return null;
+		}
         //
         p1 = turningPoints[0];  p2 = turningPoints[1];pos.angle = p1.angle;
         if (Utility.isIntersecting(bEdge.c1,bEdge.c2,p1,p2) )
@@ -4264,7 +4268,10 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
             else pos.y1 = bEdge.m41.y;
             
             pos.pointStart.label = "m41";pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
-        }
+        } else{
+			console.log("No beginShape to connect from");
+			return  null;
+		}
         
 
         // align turning points to starting and ending points coordinates
@@ -4296,11 +4303,11 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
             }
             
         } else {
-            if (tLen === 2)
+            if (tLen === 2 && _beginShape.param.connectInPlace)
             {
                 var angle = pos.angle;
-                if (angle === 0) pos.y2 = pos.y1;
-                else pos.x2 = pos.x1;
+                if (angle === 90) pos.x2 = pos.x1;
+				else pos.y2 = pos.y1;
             }
             turningPoints = [];
         }
@@ -4683,7 +4690,17 @@ Utility.identifyLines = function(_path)
         } else {currentLine.angle = angle;currentLine.active = true;}
         pos0 = pos1;
     }
-    if (lines.length === 0 || (currentLine.id !== lines[lines.length - 1])) lines.push(currentLine);
+    if (lines.length === 0 || (currentLine.id !== lines[lines.length - 1])) {
+		if (lines.length === 0) lines.push(currentLine);
+		else
+		{
+			var prevLine = lines[lines.length - 1];
+			var dx = (currentLine.point.x - prevLine.point.x); var dy = (currentLine.point.y - prevLine.point.y);
+			var dist =  Math.sqrt(dx * dx + dy*dy);
+			if (dist > 10) lines.push(currentLine);
+		}
+
+	}
     
     /*
     for (var p = _path.length -1;p > -1; p--) console.log("("+_path[p].x +","+_path[p].y+") - "+_path[p].curedAngle+" - "+_path[p].angle);
