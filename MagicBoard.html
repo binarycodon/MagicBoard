@@ -123,7 +123,8 @@
    {
        var sheet = MagicBoard.sheetBook.currentSheet;
        var extension = "";
-       var dataURL = sheet.getImage(type);
+       var imageObj = sheet.getImage(type);
+       var dataURL = imageObj.dataURL;
        if (type === "svg")
        {
            //dataURL = 'data:image/svg+xml;utf8,' + encodeURI(dataURL);
@@ -131,7 +132,15 @@
            alert("Temporarily saving as .html, please rename it to .svg after download");
        } else
        {
-           dataURL = dataURL.replace("data:image/png","data:application/octet-stream");
+           
+           if (type === "pdf")
+           {
+               var doc = new jsPDF();
+
+               doc.addImage(dataURL, 'png',0, 0, imageObj.width, imageObj.height);
+               var blob = doc.output();
+              dataURL = "data:application/pdf;base64,"+btoa(blob);
+           } else dataURL = dataURL.replace("data:image/png","data:application/octet-stream");
        }
        
        var a = document.createElement("a");
@@ -142,6 +151,7 @@
        a.click();
        
    }
+ 
 
    var beginShape,endShape;
    function promptLineType(_endShape)
@@ -420,9 +430,9 @@
    var uml11 = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"#1b8d11","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
    var txt = {type:"text",dimension:{width:100,height:10,x:30,y:56},param:{"font-size":14,fill:"black"},"innerHTML":"Text"};
    var obj = {type:"text",dimension:{width:100,height:10,x:30,y:60},param:{"font-size":14,fill:"white"},"innerHTML":"Object"};
-   var obj1 = {type:"text",dimension:{width:100,height:10,x:30,y:8},param:{"font-size":14,fill:"white"},"innerHTML":":Object"};
-   var usecase = {type:"text",dimension:{width:100,height:10,x:28,y:56},param:{"font-size":14,fill:"white"},"innerHTML":"Use Case"};
-   var proc = {type:"text",dimension:{width:100,height:10,x:34,y:60},param:{"font-size":14,"fill":"white"},"innerHTML":"Process"};
+   var obj1 = {type:"text",dimension:{width:100,height:8,x:50,y:5},param:{"font-size":14,fill:"white","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":":Object","properties":{ "text":"Text - Object","text-color":"Text - Object color"}};
+   var usecase = {type:"text",dimension:{width:100,height:10,x:50,y:50},param:{"font-size":14,fill:"white","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Use Case","properties":{ "text":"Text - Object","text-color":"Text - Object color"}};
+   var proc = {type:"text",dimension:{width:100,height:10,x:50,y:50},param:{"font-size":14,"fill":"white","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Process","properties":{ "text":"Text - Object","text-color":"Text - Object color"}};
    var actor = {type:"text",dimension:{width:100,height:100,x:4,y:90},param:{"font-size":14,"fill":"#1b8d11"},"innerHTML":"Actor"};
    var hRail = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
    //
@@ -481,12 +491,12 @@ var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"
     ,"properties":{"line-color":"Border Color"}
 }
 //
-var umlLifeLine0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":40},"dimension":{"x":0,"y":0,"width":100,"height":13.333333333333334},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
+var umlLifeLine0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":40},"dimension":{"x":0,"y":0,"width":100,"height":8.333333333333334},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
 
-var umlLifeLine1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":13.333333333333334},{"op":"L","x":50,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-dasharray":"3 3"},"lines":[{"op":"M","x":50,"y":40},{"op":"L","x":50,"y":300}]}
+var umlLifeLine1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":8.333333333333334},{"op":"L","x":50,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-dasharray":"3 3"},"lines":[{"op":"M","x":50,"y":40},{"op":"L","x":50,"y":300}]}
 
 //
-var umlActivity0 = {"type":"rect","origDim":{"x":0,"y":0,"width":10,"height":80},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
+var umlActivity0 = {"type":"rect","origDim":{"x":0,"y":0,"width":20,"height":80},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
 // UML Class
 
 var umlClass0 = {"type":"rect","origDim":{"x":0,"y":0,"width":160,"height":90},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"white","pointer-events":"all"},"lines":[]}
@@ -578,8 +588,8 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
               "hover":{"override":null,"post":null,"pre":null},
               "doubleClick":{"override":null,"post":null,"pre":null}}
           },
-          "umlLifeLine":{"frame":{"width":100,"height":300,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlLifeLine0,obj1,umlLifeLine1]},
-          "umlActivity":{"frame":{"width":10,"height":80,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlActivity0]},
+          "umlLifeLine":{"frame":{"width":100,"height":500,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlLifeLine0,obj1,umlLifeLine1]},
+          "umlActivity":{"frame":{"width":25,"height":90,"unit":"px"},"param":{"alignmentRails":true,"connectInPlace":true},"componentParms":[umlActivity0]},
           "umlClass":{"frame":{"width":160,"height":90,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlClass0,umlClass1,umlClassText,umlFieldText,umlClass2,umlMethodText]
               ,events : {
                   "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
@@ -1181,6 +1191,7 @@ var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,
                           
 
       </script>
+  <!-- <script src="js/courtseyJs/jspdf.min.js"></script> -->
 </html>
 
 

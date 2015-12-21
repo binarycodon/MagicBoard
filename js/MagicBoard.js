@@ -526,7 +526,7 @@ Sheet.prototype.getImage = function(_type)
         //document.body.appendChild(canvas);
         
         var dataURL = canvas.toDataURL();
-        return dataURL;
+        return {"dataURL":dataURL,"size":{width:canvas.width,height:canvas.height}};
     }
 }
 
@@ -837,6 +837,35 @@ Shape.prototype.init = function()
     this.connectedFrom = [];
 }
 
+/**
+ * This Function return JSON representation of the shape
+ *  @returns {Object} - desc - JSON Object describing the shape
+ */
+Shape.prototype.getShapeDetail = function()
+{
+    var desc = {};
+    desc.param = this.param ;
+    desc.frame = this.frame ;
+    desc.events = this.events;
+    
+        desc = JSON.parse(JSON.stringify(desc));
+    desc.componentParms = [];
+    //if (_desc.connectedFromIds) this.connectedFromIds = _desc.connectedFromIds;
+    //if (_desc.connectedToIds) this.connectedToIds = _desc.connectedToIds;
+    //if (_desc.id) this.id = _desc.id;
+
+    
+    var cLen = this.components.length;
+    for (var c = 0; c < cLen;c++)
+    {
+        var component = this.components[c];
+        var compDetail = component.getComponentDetails();
+        desc.componentParms.push(compDetail);
+    }
+
+    return desc;
+}
+
 Shape.prototype.createCanvas = function()
 {
     var width = Utility.Shape.dataFormatter(this.frame.width,"width",this);this.frame.width = width;
@@ -878,8 +907,15 @@ Shape.prototype.addHover = function()
 {
     var shape = this;
     var dom = this.dom;
+
     dom.onmouseover = function () {
+        
         MagicBoard.indicators.mouseover.push(shape);
+        if (MagicBoard.indicators.lineActive === shape)
+        {
+            // reentry
+            MagicBoard.scratch.connectToSame = true;
+        }
         //console.log("mouse over "+event.target+" current "+event.currentTarget);
     }
 
@@ -954,10 +990,67 @@ Shape.prototype.move = function(pos,clickPos)
 
     var top = dim.top + diffY; var bottom = dim.bottom + diffY;
     var left = dim.left + diffX; var right = dim.right + diffX;
+    
 
     var ctx = MagicBoard.sheetBook.scratchCtx;
-    var canvas = MagicBoard.sheetBook.scratchCanvas
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    
+    var canvas = MagicBoard.sheetBook.scratchCanvas;
+    
+    // check for alignments
+    if (MagicBoard.scratch.prevAlign)
+    {
+        if (MagicBoard.scratch.prevAlign.top)
+        {
+            if (Math.abs(top - MagicBoard.scratch.prevAlign.top) < 8)
+            {
+                top = MagicBoard.scratch.prevAlign.top;
+            } else delete MagicBoard.scratch.prevAlign["top"];
+        }
+        
+        if (MagicBoard.scratch.prevAlign.left)
+        {
+            if (Math.abs(left - MagicBoard.scratch.prevAlign.left) < 8)
+            {
+                left = MagicBoard.scratch.prevAlign.left;
+            } else delete MagicBoard.scratch.prevAlign["left"];
+        }
+        
+        if (MagicBoard.scratch.prevAlign.bottom)
+        {
+            if (Math.abs(bottom - MagicBoard.scratch.prevAlign.bottom) < 8)
+            {
+                bottom = MagicBoard.scratch.prevAlign.bottom;
+                var diff = bottom - dim.bottom;
+                top = dim.top + diff;
+            } else delete MagicBoard.scratch.prevAlign["bottom"];
+        }
+        
+        if (MagicBoard.scratch.prevAlign.right)
+        {
+            if (Math.abs(right - MagicBoard.scratch.prevAlign.right) < 8)
+            {
+                right = MagicBoard.scratch.prevAlign.right;
+                var diff = right - dim.right;
+                left = dim.left + diff;
+            } else delete MagicBoard.scratch.prevAlign["right"];
+        }
+        
+        var found = false;
+        for (var k in MagicBoard.scratch.prevAlign)
+        {
+            found = true; break;
+        }
+        if (!found) {
+            delete MagicBoard.scratch["prevAlign"];
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+        }
+    }
+    else {
+        var found = this.alignmentCheck(ctx,canvas.width,canvas.height,top,left,bottom,right);
+        if (!found) ctx.clearRect(0,0,canvas.width,canvas.height);
+    }
+
+
 
     ctx.beginPath();
     ctx.strokeStyle = "green";
@@ -967,9 +1060,6 @@ Shape.prototype.move = function(pos,clickPos)
 
     ctx.stroke();
 
-
-    // check for alignments
-    this.alignmentCheck(ctx,canvas.width,canvas.height,top,left,bottom,right);
     // done with the alignments
 }
 
@@ -1020,34 +1110,9 @@ Shape.prototype.resizeStop = function()
     this.dimension.resizeY = null;
     this.dimension.resizeWidth = null;
     this.dimension.resizeHeight = null;
-    /*
-    if (MagicBoard.indicators.resize < 2)
-    {
-        if (!this.dimension.resizeWidth) this.dimension.resizeWidth = this.dimension.width;
-        var w = this.dimension.resizeWidth;
-        var diffX = pos.x - clickPos.x;
-        var newW = w;
-        if (MagicBoard.indicators.resize === 0) {
-            newW = w-diffX;
-            newPos.x = pos.x;
-        }
-        else newW = w+diffX;
-        Utility.Shape.resize(this,newPos,newW,-1);
-    } else
-    {
-        if (!this.dimension.resizeHeight) this.dimension.resizeHeight = this.dimension.height;
-        var h = this.dimension.resizeHeight;
-        var diffY = pos.y - clickPos.y;
-        var newH = h;
-        if (MagicBoard.indicators.resize === 2) {
-            newH = h-diffY;
-            newPos.y = pos.y;
-        } else newH = h+diffY;
-        Utility.Shape.resize(this,newPos,-1,newH);
-    }
 
-    */
-
+    Utility.Shape.definePeriferalPoints(this.dimension);
+    // recalculate shape Dim
 
     MagicBoard.indicators.resize = -1;
     MagicBoard.indicators.resizeStarted = null;
@@ -1205,37 +1270,81 @@ Shape.prototype.connectTo = function(_endShape,_connProp)
  */
 Shape.prototype.alignmentCheck = function(ctx,cw,ch,top,left,bottom,right,bound)
 {
-    ctx.beginPath();
-    ctx.strokeStyle = "gray";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
+    var found = false;
+    var sides = [];
 
     if (MagicBoard.sheetBook.alignments.x[top])
     {
-        ctx.moveTo(0,top);
-        ctx.lineTo(cw,top);
+        sides.push("top");
+        found = true;
+       
+        if (!MagicBoard.scratch.prevAlign) MagicBoard.scratch.prevAlign = {};
+        MagicBoard.scratch.prevAlign.top = top;
     }
 
     if (MagicBoard.sheetBook.alignments.x[bottom])
     {
-        ctx.moveTo(0,bottom);
-        ctx.lineTo(cw,bottom);
+        sides.push("bottom");
+        found = true;
+
+        if (!MagicBoard.scratch.prevAlign) MagicBoard.scratch.prevAlign = {};
+        MagicBoard.scratch.prevAlign.bottom = bottom;
     }
 
     if (MagicBoard.sheetBook.alignments.y[left])
     {
-        ctx.moveTo(left,0);
-        ctx.lineTo(left,ch);
+        sides.push("left");
+        found = true;
+
+        if (!MagicBoard.scratch.prevAlign) MagicBoard.scratch.prevAlign = {};
+        MagicBoard.scratch.prevAlign.left = left;
     }
 
     if (MagicBoard.sheetBook.alignments.y[right])
     {
-        ctx.moveTo(right,0);
-        ctx.lineTo(right,ch);
+        sides.push("right");
+        found = true;
+
+        if (!MagicBoard.scratch.prevAlign) MagicBoard.scratch.prevAlign = {};
+        MagicBoard.scratch.prevAlign.right = right;
     }
 
-    ctx.stroke();
-    ctx.setLineDash([5, 0]);
+    if (sides.length > 0)
+    {
+        ctx.beginPath();
+        ctx.strokeStyle = "gray";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        
+        for (var s = sides.length - 1;s > -1;s--)
+        {
+            var side = sides[s];
+            switch (side)
+            {
+                case "top":
+                    ctx.moveTo(0,top);
+                    ctx.lineTo(cw,top);
+                    break;
+                case "bottom":
+                    ctx.moveTo(0,bottom);
+                    ctx.lineTo(cw,bottom);
+                    break;
+                case "left":
+                    ctx.moveTo(left,0);
+                    ctx.lineTo(left,ch);
+                    break;
+                case "right":
+                    ctx.moveTo(right,0);
+                    ctx.lineTo(right,ch);
+                    break;
+            }
+
+        }
+        ctx.stroke();
+        ctx.setLineDash([5, 0]);
+    }
+    
+    return found;
 
 }
 
@@ -1276,24 +1385,7 @@ Shape.prototype.setPosition = function(pos,align)
     dim.left = pos.x;
     dim.top = pos.y;
 
-    dim.right = dim.left + dim.width;
-    dim.bottom = dim.top + dim.height;
-    dim.cx = dim.left + (dim.width)/2;
-    dim.cy = dim.top + (dim.height)/2;
-
-
-    var edgePoints = {
-        "c1":{"x":dim.left,"y":dim.top},
-        "c2":{"x":dim.right,"y":dim.top},
-        "c3":{"x":dim.right,"y":dim.bottom},
-        "c4":{"x":dim.left,"y":dim.bottom},
-        "m12":{"x":dim.cx,"y":dim.top},
-        "m23":{"x":dim.right,"y":dim.cy},
-        "m34":{"x":dim.cx,"y":dim.bottom},
-        "m41":{"x":dim.left,"y":dim.cy}
-    };
-
-    dim.edgePoints = edgePoints;
+    Utility.Shape.definePeriferalPoints(dim);
 
     this.refreshConnection();
     if (this.param.alignmentRails)
@@ -2003,6 +2095,22 @@ var ShapeComponent = function(_desc) {
        this.properties = {};
     }
 
+}
+
+/**
+ *  This will function will return a JSON representing the component
+ *  @return {Object} jsonDescription
+ */
+ShapeComponent.prototype.getComponentDetails = function()
+{
+    var jsonDescription = {};
+    jsonDescription.type = this.type;
+    jsonDescription.dimension = JSON.parse(JSON.stringify(this.dimension));
+    jsonDescription.param =  JSON.parse(JSON.stringify(this.param));
+    
+    if (this.innerHTML) jsonDescription.innerHTML = this.innerHTML;
+    if (this.properties) jsonDescription.properties = this.properties;
+    return jsonDescription;
 }
 
 /**
@@ -2777,7 +2885,29 @@ MagicBoard.eventStop = function(e)
 
         var diffX = pos.x - clickPos.x;var diffY = pos.y - clickPos.y;
 
-        var top = dim.top + diffY; var left = dim.left + diffX;
+        var top,left;
+        if (MagicBoard.scratch.prevAlign)
+        {
+            if (MagicBoard.scratch.prevAlign.left) left = MagicBoard.scratch.prevAlign.left;
+            if (MagicBoard.scratch.prevAlign.top) top = MagicBoard.scratch.prevAlign.top;
+            if (MagicBoard.scratch.prevAlign.right) {
+                if (!MagicBoard.scratch.prevAlign.left)
+                {
+                    var diff = MagicBoard.scratch.prevAlign.right - dim.right;
+                    left = dim.left + diff;
+                }
+            }
+            if (MagicBoard.scratch.prevAlign.bottom) {
+                if (!MagicBoard.scratch.prevAlign.top)
+                {
+                    var diff = MagicBoard.scratch.prevAlign.bottom - dim.bottom;
+                    top = dim.top + diff;
+                }
+            }
+        }
+        if (!left) left = dim.left + diffX;
+        if (!top) top = dim.top + diffY;
+
 
         shape.setPosition({"x":left,"y":top});
 
@@ -2806,8 +2936,16 @@ MagicBoard.eventStop = function(e)
             }
             else if ( !beginShape || beginShape === endShape || beginShape === endShape.parentShape)
             {
-                endShape.click();
-                MagicBoard.scratch.path = [];
+                if (MagicBoard.scratch.connectToSame)
+                {
+                    beginShape.connectTo(endShape); // connect to itself
+                    delete MagicBoard.scratch["connectToSame"];
+                } else
+                {
+                    endShape.click();
+                    MagicBoard.scratch.path = [];
+                }
+
             }
             else
             {
@@ -2865,10 +3003,39 @@ MagicBoard.keyUp = function(e)
                 shape.click(); // force a click to remove hilight
                 shape.deleteShape(); // then delete the shape
             }
+            break;
+        case 67:  // C
+        case 99: // c
+            if (MagicBoard.indicators.keyType === "ctrlKey")
+            {
+                if (!MagicBoard.scratch.copy) MagicBoard.scratch.copy = [];
+                MagicBoard.scratch.copy.push(MagicBoard.indicators.hilight)
+            }
+            break;
+        case 86:  // V
+        case 118: // v
+            if (MagicBoard.indicators.keyType === "ctrlKey")
+            {
+                if (MagicBoard.scratch.copy)
+                {
+                    // paste all the copied objects
+                    for (var c = MagicBoard.scratch.copy.length - 1;c > -1;c-- )
+                    {
+                        var shape = MagicBoard.scratch.copy[c];
+                        var shapeDetail = shape.getShapeDetail();
+                        var cloneShape = new Shape(shapeDetail);
+                        cloneShape.draw();
+                        cloneShape.setPosition({x:(shape.dimension.right+20),y:shape.dimension.top});
+                        cloneShape.addHover();
+                    }
+                }
+            }
+            break;
         case 90:  // z
         case 122: // Z
             if (MagicBoard.indicators.keyType === "ctrlKey")
                 MagicBoard.sheetBook.currentSheet.undo();
+            break;
         default:
             return;
     }
@@ -3608,6 +3775,28 @@ Utility.Sheet.findShapeById = function(_id)
     }
 }
 
+Utility.Shape.definePeriferalPoints = function(_dim)
+{
+    _dim.right = _dim.left + _dim.width;
+    _dim.bottom = _dim.top + _dim.height;
+    _dim.cx = _dim.left + (_dim.width)/2;
+    _dim.cy = _dim.top + (_dim.height)/2;
+    
+    
+    var edgePoints = {
+        "c1":{"x":_dim.left,"y":_dim.top},
+        "c2":{"x":_dim.right,"y":_dim.top},
+        "c3":{"x":_dim.right,"y":_dim.bottom},
+        "c4":{"x":_dim.left,"y":_dim.bottom},
+        "m12":{"x":_dim.cx,"y":_dim.top},
+        "m23":{"x":_dim.right,"y":_dim.cy},
+        "m34":{"x":_dim.cx,"y":_dim.bottom},
+        "m41":{"x":_dim.left,"y":_dim.cy}
+    };
+    
+    _dim.edgePoints = edgePoints;
+}
+
 /**
  *  This Utility function is invoked during resize event.
  *  @param {Shape} _shape
@@ -4023,28 +4212,8 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
         // find out which line is intersecting for begin object
         
         tLen = turningPoints.length;
-        var pos = {}; var p1 = turningPoints[0]; var p2 = turningPoints[1];
-        if (Utility.isIntersecting(bEdge.c1,bEdge.c2,p1,p2) )
-        {
-            pos.x1 = bEdge.m12.x;pos.y1 = bEdge.m12.y;pos.pointStart = {"label":"m12","x":pos.x1,"y":pos.y1};
-        } else if (Utility.isIntersecting(bEdge.c2,bEdge.c3,p1,p2) )
-        {
-            //var mP = (bEdge.c2.y - bEdge.c3.y)/(bEdge.c2.x - bEdge.c3.x);
-            //var P = bEdge.c3.y - mP*bEdge.c3.x;
-            
-            //var nQ = (p1.y - p2.y)/(p1.x - p2.x);
-            //var Q = p2.y - nQ * p2.x;
-            
-            // intersect point x = (nQ - nP)/(mP - mQ)   & y = mP * x + nP     or     y = mQ * x + nQ
-            pos.x1 = bEdge.m23.x;pos.y1 = bEdge.m23.y;pos.pointStart = {"label":"m23","x":pos.x1,"y":pos.y1};
-        } else if (Utility.isIntersecting(bEdge.c3,bEdge.c4,p1,p2) )
-        {
-            pos.x1 = bEdge.m34.x;pos.y1 = bEdge.m34.y;pos.pointStart = {"label":"m34","x":pos.x1,"y":pos.y1};
-        } else if (Utility.isIntersecting(bEdge.c4,bEdge.c1,p1,p2) )
-        {
-            pos.x1 = bEdge.m41.x;pos.y1 = bEdge.m41.y;pos.pointStart = {"label":"m41","x":pos.x1,"y":pos.y1};
-        }
-        
+        var pos = {};var p1,p2;
+        //
         p1 = turningPoints[tLen - 1]; p2 = turningPoints[tLen - 2];
         if (Utility.isIntersecting(eEdge.c1,eEdge.c2,p1,p2) )
         {
@@ -4059,7 +4228,45 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
         {
             pos.x2 = eEdge.m41.x;pos.y2 = eEdge.m41.y;pos.pointEnd = {"label":"m41","x":pos.x2,"y":pos.y2};
         }
+        //
+        p1 = turningPoints[0];  p2 = turningPoints[1];pos.angle = p1.angle;
+        if (Utility.isIntersecting(bEdge.c1,bEdge.c2,p1,p2) )
+        {
+            pos.pointStart = {};
+            pos.y1 = bEdge.m12.y;
+            if (_beginShape.param.connectInPlace)  {pos.x1 = p1.x;}
+            else pos.x1 = bEdge.m12.x;
+
+            pos.pointStart.label = "m12";pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+            
+        } else if (Utility.isIntersecting(bEdge.c2,bEdge.c3,p1,p2) )
+        {
+            pos.pointStart = {};
+            pos.x1 = bEdge.m23.x;
+            if (_beginShape.param.connectInPlace) { pos.y1 = p1.y;}
+            else pos.y1 = bEdge.m23.y;
+            
+            pos.pointStart.label = "m23";pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+
+        } else if (Utility.isIntersecting(bEdge.c3,bEdge.c4,p1,p2) )
+        {
+            pos.pointStart = {};
+            pos.y1 = bEdge.m34.y;
+            if (_beginShape.param.connectInPlace)  {pos.x1 = p1.x;}
+            else pos.x1 = bEdge.m34.x;
+            
+            pos.pointStart.label = "m34";pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+        } else if (Utility.isIntersecting(bEdge.c4,bEdge.c1,p1,p2) )
+        {
+            pos.pointStart = {};
+            pos.x1 = bEdge.m41.x;
+            if (_beginShape.param.connectInPlace)  {pos.y1 = p1.y;}
+            else pos.y1 = bEdge.m41.y;
+            
+            pos.pointStart.label = "m41";pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+        }
         
+
         // align turning points to starting and ending points coordinates
         tLen = turningPoints.length;
         if (tLen > 2)
@@ -4088,7 +4295,15 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 p2 = p1;
             }
             
-        } else turningPoints = [];
+        } else {
+            if (tLen === 2)
+            {
+                var angle = pos.angle;
+                if (angle === 0) pos.y2 = pos.y1;
+                else pos.x2 = pos.x1;
+            }
+            turningPoints = [];
+        }
         
         //console.log(turningPoints);// finally
         
@@ -4313,6 +4528,15 @@ Utility.Shape.defineConnectionCoordinates = function(_connectorLine,_cInfo)
         
     } else
     {
+        //lines.push({"op":"L","x":pos.x2,"y":pos.y2});
+        //d.push({"op":"L","x":(pos.x2- left)*100/width,"y":(pos.y2 - top)*100/height});
+        
+        angleStart = Drawing.getLineAngle(pos.x1,pos.y1,pos.x2,pos.y2);
+        angleEnd = Drawing.getLineAngle(pos.x2,pos.y2,pos.x1,pos.y1);
+    }
+    
+    /*
+    {
         if (connProp.type === "DIRECT")
         {
             angleStart = Drawing.getLineAngle(x1,y1,x2,y2);
@@ -4376,6 +4600,7 @@ Utility.Shape.defineConnectionCoordinates = function(_connectorLine,_cInfo)
             
         }
     }
+    */
 
     _connectorLine.cInfo.angleStart = angleStart; _connectorLine.cInfo.angleEnd = angleEnd;
     _connectorLine.cx1 = cx1; _connectorLine.cx2 = cx2;_connectorLine.cy1 = cy1;_connectorLine.cy2 = cy2;
