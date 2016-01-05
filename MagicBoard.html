@@ -1,1198 +1,1326 @@
 <html>
-  <head>
-    <title>Magic Board</title>
-    <!-- Latest compiled and minified CSS -->
-    <link rel="stylesheet" href="css/bootstrap.css">
-        
-        <!-- Optional theme -->
-        <link rel="stylesheet" href="css/bootstrap-theme.css">
+    <head>
+        <title>Magic Board</title>
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="css/bootstrap.css">
             
-            <!-- magic board css -->
-            <link rel="stylesheet" href="css/magicboard.css">
-   <style>
-       .navbar-custom {
-           background-color:#229922;
-           color:#ffffff;
-           border-radius:0;
-       }
-   
-   .navbar-custom .navbar-nav > li > a {
-       color:#fff;
-   }
-   .navbar-custom .navbar-nav > .active > a, .navbar-nav > .active > a:hover, .navbar-nav > .active > a:focus {
-       color: #ffffff;
-       background-color:transparent;
-   }
-   .navbar-custom .navbar-brand {
-       color:#eeeeee;
-   }
-   
-   .vertBox {
-       height:800px;
-   }
-
-   .imgIcon {
-       float:left;height:35px;
-   }
-   </style>
-   <script src="js/MagicBoard.js" ></script>
-   <!--
-   <script src="js/base.js" ></script>
-   <script src="js/event.js" ></script>
-   <script src="js/utility.js" ></script>
-   <script src="js/logger.js" ></script>
-   -->
-   <script>
-       
-       
-   function allowDrop(ev) {
-           ev.preventDefault();
-    }
-   
-   function drag(ev) {
-       ev.dataTransfer.setData("text", ev.target.id);
-   }
-   
-   var fileType , fileName;
-   function drop(ev) {
-       ev.preventDefault();
-       var dt = ev.dataTransfer;
-       var data = ev.dataTransfer.getData("text");
-       var files = dt.files; var fLen = files.length;
-       
-       if (!data && fLen)
-       {  // this means external files are dragged
-           //tempDraw();
-           for (var i = 0; i < files.length; i++) {
-               var file = files[i];
-               fileType = file.type;
-               fileName = file.name;
-
-                   var fArray = fileName.split(".");
-                   if (fArray[fArray.length - 1] === "svg") fileType = "image/svg+xml";
-                   else if (fArray[fArray.length - 1] === "json") fileType = "application/json";
-                   fArray.pop();
-                   fileName = fArray.join(".");
-               var reader = new FileReader();
-               
-               reader.onload = function(e) {
-                   if (fileType === "image/svg+xml")
-                   {
-                       var svg = reader.result;
-                       currentSheetName = MagicBoard.sheetBook.currentSheet.name;
-                       var newSheet = Utility.SheetBook.createSheet(fileName,svg);
-                       
-                       addNewSheetTab(fileName);
-                       var shapes = newSheet.shapes;
-                       for (var s = 0,sLen = shapes.length; s < sLen;s++)
-                       {
-                           var shape = shapes[s];
-                           shape.events = {
-                               "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
-                               "click":{"override":null,"post":"showProperty","pre":null},
-                               "hover":{"override":null,"post":null,"pre":null},
-                               "doubleClick":{"override":null,"post":null,"pre":null}};
-                       }
-                       // draw the sheet
-                   } else if (fileType === "application/json")
-                   {
-                       var jsonString = reader.result;
-                       var obj = JSON.parse(jsonString);
-                       var sheet1 = new Sheet(obj);
-                       MagicBoard.sheetBook.addSheet(sheet1);
-                       MagicBoard.sheetBook.setCurrentSheet(sheet1);
-                       Utility.Sheet.connectIds();
-                   }
-
-               }
-               
-               reader.readAsText(file);
-           }
-       } else
-       {
-           var pos = MagicBoard.getPos(ev);
-           pos.x = Math.round(pos.x); pos.y = Math.round(pos.y);
-           addObject(data,false,pos,true);
-       }
-
-
-       //ev.target.appendChild(document.getElementById(data));
-   }
-   
-   function downloadSheetImage(type)
-   {
-       var sheet = MagicBoard.sheetBook.currentSheet;
-       var extension = "";
-       var imageObj = sheet.getImage(type);
-       var dataURL = imageObj.dataURL;
-       if (type === "svg")
-       {
-           //dataURL = 'data:image/svg+xml;utf8,' + encodeURI(dataURL);
-           dataURL = 'data:text/html;base64,' + btoa(dataURL);
-           alert("Temporarily saving as .html, please rename it to .svg after download");
-       } else
-       {
-           
-           if (type === "pdf")
-           {
-               var doc = new jsPDF();
-
-               doc.addImage(dataURL, 'png',0, 0, imageObj.width, imageObj.height);
-               var blob = doc.output();
-              dataURL = "data:application/pdf;base64,"+btoa(blob);
-           } else dataURL = dataURL.replace("data:image/png","data:application/octet-stream");
-       }
-       
-       var a = document.createElement("a");
-       if (type === "png") a.setAttribute("download",sheet.name+"."+type);
-       else a.setAttribute("download",sheet.name);
-
-       a.href = dataURL;
-       a.click();
-       
-   }
- 
-
-   var beginShape,endShape;
-   function promptLineType(_endShape)
-   {
-       beginShape = this;
-       endShape = _endShape;
-       $("#lineTypePrompt").show();
-   }
-
-   function changeLineType()
-   {
-       var cLine = this;
-       beginShape = cLine.cInfo.beginShape;
-       endShape = cLine.cInfo.endShape;
-       cLine.deleteShape();
-       $("#lineTypePrompt").show();
-   }
-
-   function applyConnector()
-   {
-       var list = $(".connActive");
-       var connectProp = {"type":"DIRECT","end":null,"begin":null,"style":"SOLID"};
-       for (var i = 0, iLen = list.length;i < iLen;i++)
-       {
-           var el = list[i];
-           var id = el.getAttribute("id");
-           switch (id)
-           {
-              
-               case "oneFillArrowEndDiv":
-                   connectProp.end = "FILLED";
-                   break;
-               case "oneRoundEndDiv":
-                   connectProp.end = "DOT";
-                   break;
-               case "oneHollowArrowEndDiv":
-                   connectProp.end = "HOLLOW";
-                   break;
-               case "oneArrowEndDiv":
-                   connectProp.end = "REGULAR";
-                   break;
-                case "diamondFilledEndDiv":
-                   connectProp.end = "DIAMONDFILLED";
-                   break;
-                case "diamondHollowEndDiv":
-                   connectProp.end = "DIAMONDHOLLOW";
-                   break;
-               case "oneFillArrowBeginDiv":
-                   connectProp.begin = "FILLED";
-                   break;
-               case "diamondFilledBeginDiv":
-                    connectProp.begin = "DIAMONDFILLED";
-                    break;
-               case "diamondHollowBeginDiv":
-                    connectProp.begin = "DIAMONDHOLLOW";
-                    break;
-               case "oneRoundBeginDiv":
-                   connectProp.begin = "DOT";
-                   break;
-               case "oneHollowArrowBeginDiv":
-                   connectProp.begin = "HOLLOW";
-                   break;
-               case "oneArrowBeginDiv":
-                   connectProp.begin = "REGULAR";
-                   break;
-               case "solidDiv":
-                   connectProp.style = "SOLID";
-                   break;
-               case "dottedDiv":
-                   connectProp.style = "DOTTED";
-                   break;
-               case "dashedDiv":
-                   connectProp.style = "DASHED";
-                   break;
-                case "directConnectDiv":
-                   connectProp.type = "DIRECT";
-                   break;
-                case "horizagDiv":
-                   connectProp.type = "ONEBEND";
-                   break;
-                case "zigzagDiv":
-                   connectProp.type = "TWOBEND";
-                   break;
-                case "curvedDiv":
-                   connectProp.type = "CURVED";
-                   break;
-           }
-       }
-       beginShape.connectTo(endShape,connectProp);
-   }
-
-
-   var prevConnectType = "directConnect";
-   function connectShape(_connectType)
-   {
-       if (prevConnectType)
-       {
-           $("#"+prevConnectType+"Div").toggleClass("connActive connInactive");
-           if (prevConnectType === _connectType) {prevConnectType = "";return;}
-       }
-       $("#"+_connectType+"Div").toggleClass("connActive connInactive");
-       prevConnectType = _connectType;
-   }
-
-   var prevArrowEType = "oneFillArrowEnd";
-   function drawArrowE(_arrowType)
-   {
-       if (prevArrowEType)
-       {
-           $("#"+prevArrowEType+"Div").toggleClass("connActive connInactive");
-           if (prevArrowEType === _arrowType) {prevArrowEType = "";return;}
-       }
-
-       $("#"+_arrowType+"Div").toggleClass("connActive connInactive");
-       prevArrowEType = _arrowType;
-   }
-
-   var prevArrowBType = "";
-   function drawArrowB(_arrowType)
-   {
-       if (prevArrowBType)
-       {
-           $("#"+prevArrowBType+"Div").toggleClass("connActive connInactive");
-           if (prevArrowBType === _arrowType) {prevArrowBType = "";return;}
-       }
-
-       $("#"+_arrowType+"Div").toggleClass("connActive connInactive");
-       prevArrowBType = _arrowType;
-   }
-
-   var prevLineType = "solid";
-   function drawLine(_lineType)
-   {
-       if (prevLineType)
-       {
-           $("#"+prevLineType+"Div").toggleClass("connActive connInactive");
-           if (prevLineType === _lineType) {prevLineType = "";return;}
-       }
-
-       $("#"+_lineType+"Div").toggleClass("connActive connInactive");
-       prevLineType = _lineType;
-   }
-   function  showProperty()
-   {
-       if (!MagicBoard.indicators.hilight) {
-           $("#propertyAccordion").hide();
-       } else {
-           // prefill it before show
-           var shape = MagicBoard.indicators.hilight;
-           var props = shape.getProperties();
-           var accordion =  $("#propertyAccordion");
-           var htmlString = "";
-           /*
-            background-color: Object
-            keyName : background-color
-            field: "input"
-            label: "Background Color"
-            propName: "fill"
-            propType: "attribute"
-            values: Array[1]
-            0: Object
-            name: ""
-            type: "color"
-            value: "#1b8d11"
-           */
-           var active = " in", expanded = "true";
-           for (var i = 0,iLen = props.length;i < iLen; i++)
-           {
-               var prop = props[i]; var p = prop.keyName;var pid = p+i;
-                htmlString += '<div class="panel panel-primary" id="'+pid+'Panel" style="border-color:rgb(27,141,17)">' +
-                   '<div class="panel-heading" style="background:rgb(27,141,17);color:white;border-color:rgb(27,141,17)" >' +
-                   '<h4 class="panel-title" >' +
-                   '<a data-toggle="collapse" id="'+p+'" data-parent="#propertyAccordion" href="#'+pid+'List"  class="collapsed" aria-expanded="'+expanded+'">' +
-                   prop.label +
-                   '</a>'+
-                   '</h4>'+
-                   '</div>'+
-                   '<section class="panel-collapse collapse'+active+'" id="'+pid+'List" aria-expanded="'+expanded+'">'+
-                   '<div class="panel-body"><center>'+
-                                getPropertyField(prop,p)+
-                   '</center></div>'+
-                   '</section>'+
-                   '</div>';
-                active = '',expanded = 'false';
-           }
-           accordion.html(htmlString).show();
-       }
-   }
-
-   function getPropertyField(prop,pKey)
-   {
-       var str = "";
-       if (prop.field === "input")
-       {
-           var func = "onchange";
-           if (prop.propType === "text") func = "onblur";
-           str =  '<input '+func+'="applyProperty()" data-label="'+prop.label+'" data-name="'+prop.propName+'" data-type="'+prop.propType+'" data-key="'+pKey+'" type="'+prop.values[0].type+'" value="'+prop.values[0].value+'"/>'
-       } else if (prop.field === "select")
-       {
-           str = '<select onchange="applyProperty()" data-type="'+prop.propType+'" data-key="'+pKey+'">';
-           for (var v = 0,vLen = prop.values.length;v < vLen;v++)
-           {
-               str += '<option value="'+prop.values[v].value+'" >'+prop.values[v].name+'</option>';
-           }
-           str += '</select>';
-       }
-    return str;
-   }
-
-   function applyProperty()
-   {
-       //(_propKey,_propName,_propType,_value,_propLabel)
-       var shape = MagicBoard.indicators.hilight;
-       var target = event.target;
-       var pKey = target.getAttribute("data-key");
-       if (target.nodeName === "INPUT")
-       {
-         shape.applyProperty(pKey,target.getAttribute("data-name"),target.getAttribute("data-type"),target.value,target.getAttribute("data-label"));
-       }
-   }
-
-    function addObject(id,noDraw,pos,cnter)
-    {
-        var shapeDetail = customShapes[id];
-        var s = new Shape(shapeDetail);
-        s.events = {
-            "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
-            "click":{"override":null,"post":"showProperty","pre":null},
-            "hover":{"override":null,"post":null,"pre":null},
-            "doubleClick":{"override":null,"post":null,"pre":null}};
-        
-        if (!noDraw)
-        {
-            s.draw();
-            s.addHover();
-            if (pos) {
-                if (cnter)
-                {
-                    var x = pos.x -  s.dimension.width /2;
-                    var y = pos.y - s.dimension.height /2;
-                    s.setPosition({x:x,y:y},true);
+            <!-- Optional theme -->
+            <link rel="stylesheet" href="css/bootstrap-theme.css">
+                
+                <!-- magic board css -->
+                <link rel="stylesheet" href="css/MagicBoard.css">
+                    <style>
+                        .navbar-custom {
+                            background-color:#229922;
+                            color:#ffffff;
+                            border-radius:0;
+                        }
                     
-                } else s.setPosition(pos,true); // setposition with align option
-            } else
-            {
-                var sheet = MagicBoard.sheetBook.currentSheet;
-                var margin = 15;
-                var potentialGridSeqs = Utility.Sheet.isGridAvailable(-1,sheet,s);
-                if (potentialGridSeqs.length > 0)
-                {
-                    var grid = sheet.courseGrids[potentialGridSeqs[0]];
-                        s.setPosition({"x":(grid.x1 + margin),"y":(grid.y1+margin)});
-                } else  s.setPosition({"x":120,"y":120});
-
-            }
-        }
-
-        return s;
-    }
-   
-   /*
-    // sample
-    var r = new ShapeComponent({type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-    var c = new ShapeComponent({type:"circle",dimension:{cx:50,cy:50,r:50},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-    var o = new ShapeComponent({type:"ellipse",dimension:{cx:50,cy:50,rx:40,ry:20},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-    var p = new ShapeComponent({type:"path",dimension:{d:[{op:"m",x:0,y:40},{op:"l",x:30,y:40},{op:"m",x:10,y:40},{op:"l",x:30,y:40}]},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-    var t = new ShapeComponent({type:"text",dimension:{width:100,height:10,x:20,cy:50},param:{"font-size":14},"innerHTML":"Object"});
-    var i = {type:"image",dimension:{width:10,height:10,cx:70,cy:50},param:{"src":"image/uml1.png"}};
-    var s =
-    {
-    frame:{width:100,height:100,left:130,top:140,unit:"px"},
-    param:{alignmentRails:true,"background-color":"lightblue","border-width":1,"border-color":"black"},
-    components:[r,c,o,t,p]
-    }
-    */
-   var uml11 = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"#1b8d11","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
-   var txt = {type:"text",dimension:{width:100,height:10,x:30,y:56},param:{"font-size":14,fill:"black"},"innerHTML":"Text"};
-   var obj = {type:"text",dimension:{width:100,height:10,x:30,y:60},param:{"font-size":14,fill:"white"},"innerHTML":"Object"};
-   var obj1 = {type:"text",dimension:{width:100,height:8,x:50,y:5},param:{"font-size":14,fill:"white","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":":Object","properties":{ "text":"Text - Object","text-color":"Text - Object color"}};
-   var usecase = {type:"text",dimension:{width:100,height:10,x:50,y:50},param:{"font-size":14,fill:"white","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Use Case","properties":{ "text":"Text - Object","text-color":"Text - Object color"}};
-   var proc = {type:"text",dimension:{width:100,height:10,x:50,y:50},param:{"font-size":14,"fill":"white","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Process","properties":{ "text":"Text - Object","text-color":"Text - Object color"}};
-   var actor = {type:"text",dimension:{width:100,height:100,x:4,y:90},param:{"font-size":14,"fill":"#1b8d11"},"innerHTML":"Actor"};
-   var hRail = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
-   //
-   uml120 = {"type":"rect","dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"white","pointer-events":"all"}}
-   var uml121 = {"type":"ellipse","origDim":{"cx":13,"cy":7,"rx":7.5,"ry":7.5},"dimension":{"cx":47,"cy":11.864406779661017,"rx":25,"ry":12.711864406779661},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"}}
-
-   var uml122 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":23.728813559322035},{"op":"L","x":50,"y":66.10169491525424},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":0,"y":39.20338983050848},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":100,"y":39.20338983050848},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":0,"y":100},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":2},"lines":[{"op":"M","x":15,"y":14},{"op":"L","x":15,"y":39},{"op":"M","x":15,"y":19},{"op":"L","x":0,"y":19},{"op":"M","x":15,"y":19},{"op":"L","x":30,"y":19},{"op":"M","x":15,"y":39},{"op":"L","x":0,"y":59},{"op":"M","x":15,"y":39},{"op":"L","x":30,"y":59}]}
-   var uml130 = {"type":"ellipse","origDim":{"cx":70,"cy":35,"rx":70,"ry":35},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all","stroke-width":1}}
-   // flow
-   var flowData = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":16.666666666666668,"y":8.474576271186441},{"op":"L","x":100,"y":0},{"op":"L","x":84.44444444444444,"y":91.52542372881356},{"op":"L","x":0,"y":100},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":15,"y":5},{"op":"L","x":90,"y":0},{"op":"L","x":76,"y":54},{"op":"L","x":0,"y":59},{"op":"Z"}]};
-   
-   var flowDB1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":83.33333333333333},{"op":"L","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":6.666666666666667,"x2":21.666666666666668,"y2":0,"x":50,"y":0},{"op":"C","x1":76.66666666666667,"y1":0,"x2":100,"y2":6.666666666666667,"x":100,"y":16.666666666666668},{"op":"L","x":100,"y":83.33333333333333},{"op":"C","x1":100,"y1":91.66666666666667,"x2":76.66666666666667,"y2":100,"x":50,"y":100},{"op":"C","x1":21.666666666666668,"y1":100,"x2":0,"y2":91.66666666666667,"x":0,"y":83.33333333333333},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":50},{"op":"L","x":0,"y":10},{"op":"C","x1":0,"y1":4,"x2":13,"y2":0,"x":30,"y":0},{"op":"C","x1":46,"y1":0,"x2":60,"y2":4,"x":60,"y":10},{"op":"L","x":60,"y":50},{"op":"C","x1":60,"y1":55,"x2":46,"y2":60,"x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":55,"x":0,"y":50},{"op":"Z"}]}
-   var flowDB2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":25,"x2":21.666666666666668,"y2":33.333333333333336,"x":50,"y":33.333333333333336},{"op":"C","x1":76.66666666666667,"y1":33.333333333333336,"x2":100,"y2":25,"x":100,"y":16.666666666666668}]},"param":{"fill":"none","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":10},{"op":"C","x1":0,"y1":15,"x2":13,"y2":20,"x":30,"y":20},{"op":"C","x1":46,"y1":20,"x2":60,"y2":15,"x":60,"y":10}]};
-   var flowDecision1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]};
-   
-
-var flowDoc1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":5.555555555555555},{"op":"C","x1":0,"y1":2.7777777777777777,"x2":2.0408163265306123,"y2":0,"x":5.1020408163265305,"y":0},{"op":"L","x":93.87755102040816,"y":0},{"op":"C","x1":96.93877551020408,"y1":0,"x2":100,"y2":2.7777777777777777,"x":100,"y":5.555555555555555},{"op":"L","x":100,"y":72.22222222222223},{"op":"C","x1":82.65306122448979,"y1":51.388888888888886,"x2":66.3265306122449,"y2":37.5,"x":50,"y":72.22222222222223},{"op":"C","x1":32.6530612244898,"y1":100,"x2":16.3265306122449,"y2":80.55555555555556,"x":0,"y":62.5},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"rgb(27,144,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":4},{"op":"C","x1":0,"y1":2,"x2":2,"y2":0,"x":5,"y":0},{"op":"L","x":92,"y":0},{"op":"C","x1":95,"y1":0,"x2":98,"y2":2,"x":98,"y":4},{"op":"L","x":98,"y":52},{"op":"C","x1":81,"y1":37,"x2":65,"y2":27,"x":49,"y":52},{"op":"C","x1":32,"y1":72,"x2":16,"y2":58,"x":0,"y":45},{"op":"Z"}]};
-
-var flowManual1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":41.666666666666664},{"op":"L","x":94,"y":0},{"op":"C","x1":96,"y1":0,"x2":97,"y2":0,"x":98,"y":1.6666666666666667},{"op":"C","x1":99,"y1":3.3333333333333335,"x2":99,"y2":5,"x":99,"y":8.333333333333334},{"op":"L","x":99,"y":91.66666666666667},{"op":"C","x1":100,"y1":95,"x2":98,"y2":98.33333333333333,"x":95,"y":100},{"op":"L","x":5,"y":100},{"op":"C","x1":3,"y1":100,"x2":2,"y2":98.33333333333333,"x":1,"y":96.66666666666667},{"op":"C","x1":0,"y1":95,"x2":0,"y2":93.33333333333333,"x":0,"y":91.66666666666667},{"op":"L","x":0,"y":41.666666666666664},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"}};
-
-var flowIstorage0 = {"type":"rect","origDim":{"x":0,"y":0,"width":70,"height":70,"rx":5,"ry":5},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":7.142857142857143,"ry":7.142857142857143},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","pointer-events":"all"},"lines":[]};
-var flowIstorage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":21.428571428571427},{"op":"L","x":100,"y":21.428571428571427}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":15},{"op":"L","x":70,"y":15}]};
-var flowIstorage2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":21.428571428571427,"y":0},{"op":"L","x":21.428571428571427,"y":100}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":15,"y":0},{"op":"L","x":15,"y":70}]}
-
-var flowSeqData0  = {"type":"ellipse","origDim":{"cx":50,"cy":50,"rx":50,"ry":50},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","pointer-events":"all"},"lines":[]};
-var flowSeqData1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]};
-var flowPreDef0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":60,"rx":4.03,"ry":4.03},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":4.03,"ry":6.716666666666667},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"1","pointer-events":"all"},"lines":[]};
-var flowPreDef1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":14,"y":0},{"op":"L","x":14,"y":100}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":14,"y":0},{"op":"L","x":14,"y":60}]};
-var flowPreDef2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":85,"y":0},{"op":"L","x":85,"y":100}]},"param":{"fill":"none","stroke":"white","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":85,"y":0},{"op":"L","x":85,"y":60}]}
-
-var flowStored0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1.6666666666666667,"x":99,"y":3.3333333333333335},{"op":"C","x1":95,"y1":10,"x2":92,"y2":28.333333333333332,"x":92,"y":50},{"op":"C","x1":92,"y1":70,"x2":95,"y2":88.33333333333333,"x":99,"y":96.66666666666667},{"op":"C","x1":100,"y1":96.66666666666667,"x2":100,"y2":98.33333333333333,"x":99,"y":100},{"op":"L","x":10,"y":100},{"op":"C","x1":4,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1,"x":99,"y":2},{"op":"C","x1":95,"y1":6,"x2":92,"y2":17,"x":92,"y":30},{"op":"C","x1":92,"y1":42,"x2":95,"y2":53,"x":99,"y":58},{"op":"C","x1":100,"y1":58,"x2":100,"y2":59,"x":99,"y":60},{"op":"L","x":10,"y":60},{"op":"C","x1":4,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]}
-
-var flowStart0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":21.666666666666668,"x":100,"y":50},{"op":"C","x1":100,"y1":76.66666666666667,"x2":86,"y2":100,"x":69,"y":100},{"op":"L","x":30,"y":100},{"op":"C","x1":13,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":13,"x":100,"y":30},{"op":"C","x1":100,"y1":46,"x2":86,"y2":60,"x":69,"y":60},{"op":"L","x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]}
-
-
-var laneV1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":4.55531453362256},{"op":"L","x":0,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":4.55531453362256},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":21},{"op":"L","x":0,"y":1},{"op":"L","x":120,"y":1},{"op":"L","x":120,"y":21},{"op":"Z"}]}
-
-var laneV2 = {"type":"text","origDim":{"x":34,"y":18},"dimension":{"x":27.419354838709676,"y":3.9045553145336225},"param":{"fill":"white"},"lines":[],innerHTML:"Lane"}
-
-var laneV3 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":100,"y":100},{"op":"L","x":100,"y":0}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"2","pointer-events":"none"},"lines":[{"op":"M","x":134,"y":461},{"op":"L","x":134,"y":0}]}
-var ie1 = {"type":"image","origDim":{x:0,y:0,width:484,height:456},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/ie.png"}
-var server1 = {"type":"image","origDim":{x:0,y:0,width:369,height:512},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/server.png"}
-var firewall1 = {"type":"image","origDim":{x:0,y:0,width:370,height:250},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/firewall.png"}
-
-// uml frames
-/*
-var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]}
-
-var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]}
-
-*/
-var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"1","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]
-,"properties":{ "background-color":"Frame Color","line-color":"Frame Border Color"}
-}
-
-var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"1"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]
-    ,"properties":{"line-color":"Border Color"}
-}
-//
-var umlLifeLine0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":40},"dimension":{"x":0,"y":0,"width":100,"height":8.333333333333334},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
-
-var umlLifeLine1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":8.333333333333334},{"op":"L","x":50,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-dasharray":"3 3"},"lines":[{"op":"M","x":50,"y":40},{"op":"L","x":50,"y":300}]}
-
-//
-var umlActivity0 = {"type":"rect","origDim":{"x":0,"y":0,"width":20,"height":80},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
-// UML Class
-
-var umlClass0 = {"type":"rect","origDim":{"x":0,"y":0,"width":160,"height":90},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"white","pointer-events":"all"},"lines":[]}
-
-var umlClassText = {type:"text",dimension:{width:100,height:10,x:30,y:18},param:{"font-size":12,fill:"white"},"innerHTML":"ClassName"
-    ,"properties":{ "text":"Text - Class","text-color":"Text - Class color"}
-};
-
-var umlClass1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28.88888888888889},{"op":"L","x":0,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":28.88888888888889},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"white","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":26},{"op":"L","x":0,"y":0},{"op":"L","x":160,"y":0},{"op":"L","x":160,"y":26},{"op":"Z"}]}
-
-var umlFieldText = {type:"text",dimension:{width:100,height:10,x:14,y:52},param:{"font-size":12,fill:"white"},"innerHTML":"+field:type"};
-
-var umlClass2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":62.22222222222222},{"op":"L","x":100,"y":62.22222222222222}]},"param":{"fill":"none","stroke":"white","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":56},{"op":"L","x":160,"y":56}]}
-
-var umlMethodText = {type:"text",dimension:{width:100,height:10,x:14,y:84},param:{"font-size":12,fill:"white"},"innerHTML":"+method(type):type"};
-
-var umlPackage0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":57.142857142857146,"y":0},{"op":"L","x":57.142857142857146,"y":28},{"op":"L","x":100,"y":28},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":28},{"op":"Z"}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":40,"y":0},{"op":"L","x":40,"y":14},{"op":"L","x":70,"y":14},{"op":"L","x":70,"y":50},{"op":"L","x":0,"y":50},{"op":"L","x":0,"y":14},{"op":"Z"}]}
-
-var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28},{"op":"L","x":57.142857142857146,"y":28}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":14},{"op":"L","x":40,"y":14}]}
-
-
-
-
-//
-   var defaultSheet = "Sheet1";
-   var currentSheetName = defaultSheet;
-   var customShapes = {
-       "layers":{
-           frame:{left:10,width:"80%",height:150,"border":"1px solid","border-radius":"10px",unit:"px"},
-           param:{alignmentRails:true},
-           componentParms:[hRail]
-       },
-       "process":{
-           frame:{left:100,top:100,width:124,height:84,"border":"1px solid","border-radius":"10px",unit:"px"},
-           param:{alignmentRails:true},
-           componentParms:[uml11,proc]
-       },
-       "umlObject":{
-           frame:{width:110,height:50,unit:"px"},
-           param:{alignmentRails:true},
-           componentParms:[uml11,obj]
-       },
-       /*
-       "uml12":{"type":"Custom","style":{left:100,top:100,width:60,height:120},"html":"<circle cx='15' cy='8' r='7.5' fill='rgb(27,141,17)' stroke='rgb(27,141,17)' ></circle><path d='M 15 15 L 15 40 M 15 20 L 0 20 M 15 20 L 30 20 M 15 40 L 0 60 M 15 40 L 30 60' fill='none' stroke='rgb(27,141,17)' stroke-miterlimit='10'></path>","children":["Actor"]},
-*/
-        "uml12":{"frame":{"width":30,"height":59,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[uml120,uml121,uml122]},
-
-        "uml13":{"frame":{"width":145,"height":75,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[uml130,usecase]},
-        "poolV":{"type":"Custom","style":{left:100,top:100,width:250,height:"80%","border-left":"1px solid","border-right":"1px solid"},"html":"<div></div>","children":["laneTitle"]},
-        "bpm1":{"type":"Custom","style":{left:100,top:100,width:124,height:84},"html":"<rect x=\"2\" y=\"2\" width=\"120\" height=\"80\" rx=\"3\" ry=\"3\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\"></rect>","children":["task"]},
-        "bpm2":{"type":"Custom","style":{left:100,top:100,width:124,height:84},"html":"<rect x=\"2\" y=\"2\" width=\"120\" height=\"80\" rx=\"12\" ry=\"12\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\" ></rect><rect x=\"4\" y=\"4\" width=\"116\" height=\"76\" rx=\"11.4\" ry=\"11.4\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\" ></rect>","children":["transaction"]},
-        "bpm3":{"type":"Custom","style":{left:100,top:100,width:124,height:84},"html":"<rect x=\"2\" y=\"2\" width=\"120\" height=\"80\" rx=\"12\" ry=\"12\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\" stroke-dashArray=\"1 4\" ></rect>"},
-        "bpm4":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm4.png' />"},
-        "bpm5":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm5.png' />"},
-        "bpm6":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm6.png' />"},
-        "bpm7":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm7.png' />"},
-        "bpm8":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm8.png' />"},
-        "bpm9":{"type":"Custom","style":{left:100,top:100,width:140,height:80},"html":"<img width='140' height='80' src='image/bpm9.png' />"},
-         "bpmg1":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpmg1.png' />"},
-         "bpmg2":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpmg2.png' />"},
-         "bpmg3":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpmg3.png' />"},
-         "bpme1":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme1.png' />"},
-         "bpme2":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme2.png' />"},
-         "bpme3":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme3.png' />"},
-         "bpme4":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme4.png' />"},
-          "processTitle":{"type":"Text","style":{left:0,top:"37%",width:"100%",height:30},"html":"<div >Process</div>","options":{"root":"center","alignmentRails":false}},
-          "task":{"type":"Text","style":{left:0,top:"37%",width:"100%",height:30},"html":"<div >Task</div>","options":{"root":"center","alignmentRails":false}},
-          "transaction":{"type":"Text","style":{left:26,top:36,width:100,height:30},"html":"<span>Transaction</span>","options":{"root":"center","alignmentRails":false}}
-          ,
-          "object":{"type":"Text","style":{left:40,top:20,width:100,height:30},"html":"<span>Object</span>","options":{"root":"center","alignmentRails":false}},
-          "laneTitle":{"type":"Text","style":{left:0,top:0,width:"100%",height:30},"html":"<div >Title</div>","options":{"root":"center","alignmentRails":false}},
-          "flowDataC":{"frame":{"width":90,"height":59,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowData]},
-          "flowDB":{"frame":{"width":60,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowDB1,flowDB2],properties:["background-color"]},
-          "flowDecision": {"frame":{"width":100,"height":100,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowDecision1]},
-          "flowDoc": {"frame":{"width":100,"height":70,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowDoc1]},
-          "flowManual":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowManual1]},
-          "flowIstorage":{"frame":{"width":70,"height":70,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowIstorage0,flowIstorage1,flowIstorage2]},
-          "flowSeqData":{"frame":{"width":100,"height":100,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowSeqData0,flowSeqData1]},
-          "flowPreDef":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowPreDef0,flowPreDef1,flowPreDef2]},
-          "flowStored":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowStored0]},
-          "flowStart":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowStart0]},
-          "laneV":{"frame":{"width":182,"height":461,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[laneV1,laneV2,laneV3]},
-          "ie":{"frame":{"width":60,"height":57,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[ie1]},
-          "server":{"frame":{"width":102,"height":74,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[server1]},
-          "firewall":{"frame":{"width":92,"height":83,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[firewall1]},
-          "umlFrame":{"frame":{"width":300,"height":200,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlFrame0,umlFrame1]
-              ,events : {
-              "click":{"override":null,"post":"showProperty","pre":null},
-              "hover":{"override":null,"post":null,"pre":null},
-              "doubleClick":{"override":null,"post":null,"pre":null}}
-          },
-          "umlLifeLine":{"frame":{"width":100,"height":500,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlLifeLine0,obj1,umlLifeLine1]},
-          "umlActivity":{"frame":{"width":25,"height":90,"unit":"px"},"param":{"alignmentRails":true,"connectInPlace":true},"componentParms":[umlActivity0]},
-          "umlClass":{"frame":{"width":160,"height":90,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlClass0,umlClass1,umlClassText,umlFieldText,umlClass2,umlMethodText]
-              ,events : {
-                  "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
-                  "click":{"override":null,"post":"showProperty","pre":null},
-                  "hover":{"override":null,"post":null,"pre":null},
-                  "doubleClick":{"override":null,"post":null,"pre":null}}
-          },
-          umlPackage:{"frame":{"width":70,"height":50,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlPackage0,umlPackage1]},
-          mText:{"frame":{"width":70,"height":20,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[txt]}
-   }
-   
-   
-   activateSheetCalled = false;
-   function activateSheet(_sheetName)
-   {
-       if (activateSheetCalled) return;
-       activateSheetCalled = true;
-       if (!_sheetName) _sheetName = event.target.getAttribute("id");
-       setTimeout(function() {activateSheetCalled = false;},400 );
-       //var currentSheetName = MagicBoard.sheetBook.currentSheet.name;
-       if (currentSheetName === _sheetName) return;
-       // toggle "active" class for sheet tab & accordion tab
-      $("#"+currentSheetName+"Tab").removeClass("active");
-       
-       var id = _sheetName;
-       if (!_sheetName)
-       {
-           var target = event.target;
-           id = target.getAttribute("id");
-           
-           // if no sheet name is provided, then it is click on the sheet tab itself else accordion click
-           $("#"+id+"Ref").click();
-       }
-
-
-       
-       var options = {"name":id};
-       var sheet = MagicBoard.sheetBook.getSheet(id);
-       if (!sheet)
-       {
-           sheet = new Sheet(options);
-           MagicBoard.sheetBook.addSheet(sheet);
-       }
-       
-        MagicBoard.sheetBook.setCurrentSheet(sheet);
-        //sheet.reDraw();
-        sheet.refreshConnections();
-        $("#"+id+"Tab").addClass("active");
-        currentSheetName = id;
-        // toggle active class for sheet tab and accordion tab
-   }
-
-    function changeTheme()
-    {
-        if (MagicBoard.theme.shapeColor) $("#shapeBackgroundColor").val(MagicBoard.theme.shapeColor);
-        if (MagicBoard.theme.borderColor) $("#shapeBorderColor").val(MagicBoard.theme.borderColor);
-        if (MagicBoard.theme.lineColor) $("#connectorLineColor").val(MagicBoard.theme.lineColor);
-        if (MagicBoard.theme.arrowFillColor) $("#arrowFillColor").val(MagicBoard.theme.arrowFillColor);
-        $("#stylePrompt").show();
-    }
-   
-   function applyTheme()
-   {
-       var shapeColor = $("#shapeBackgroundColor").val();
-       var borderColor = $("#shapeBorderColor").val();
-       var lineColor = $("#connectorLineColor").val();
-       var arrowFillColor = $("#arrowFillColor").val();
-       
-       MagicBoard.sheetBook.currentSheet.changeThemeColor(null,shapeColor,arrowFillColor,borderColor,lineColor);
-       $("#stylePrompt").hide();
-   }
-
-   function promptSheetName()
-   {
-       $("#sheetNamePrompt").show();
-       $("#sheetName").focus();
-   }
-   
-   function addNewSheet()
-   {
-       var name = $("#newSheetName").val();
-
-       $("#sheetNamePrompt").hide();
-       //
-       currentSheetName = MagicBoard.sheetBook.currentSheet.name;
-
-       
-       var options = {"name":name};
-       var sheet = MagicBoard.sheetBook.getSheet(name);
-       if (!sheet)
-       {
-           sheet = new Sheet(options);
-           MagicBoard.sheetBook.addSheet(sheet);
-       }
-       
-       MagicBoard.sheetBook.setCurrentSheet(sheet);
-       addNewSheetTab(name);
-
-   }
-   
-   function addNewSheetTab(_name)
-   {
-       var newHTML = "<li  onclick=\"activateSheet('"+_name+"')\" id=\""+_name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+_name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+_name+"<span class=\"caret\"></span></a>" +
-       "<ul class=\"dropdown-menu\">" +
-       "<li><a href=\"#\" onclick=\"downloadSheetImage('png')\">Download PNG</a></li>"+
-       "<li><a href=\"#\" onclick=\"downloadSheetImage('svg')\">Download SVG</a></li>"+
-       "<li><a href=\"#\" onclick=\"changeTheme()\">Change Theme</a></li>"+
-       "<li><a href=\"#\" onclick=\"saveSheet()\">Save</a></li>" +
-       "<li><a href=\"#\" onclick=\"deleteSheet()\">Delete</a></li>" +
-       "</ul> </li>" ;
-
-       $("#NewTab").before(newHTML);
-       
-       // toggle "active" class for sheet tab & accordion tab
-       $("#"+currentSheetName+"Tab").removeClass("active");
-
-       $("#"+_name+"Tab").addClass("active");
-   }
-   
-   function deleteSheet()
-   {
-       alert("Sheet - "+MagicBoard.sheetBook.currentSheet.name+" Deleted ");
-   }
-   
-   function saveSheet()
-   {
-       var saved = MagicBoard.sheetBook.currentSheet.save();
-
-       var a = document.createElement("a");
-       a.setAttribute("download",MagicBoard.sheetBook.currentSheet.name+".json");
-       a.href = "data:application/json,"+JSON.stringify(saved);
-       a.click();
-       alert("Sheet - "+MagicBoard.sheetBook.currentSheet.name+" saved ");
-   }
-
-  </script>
-  </head>
-  <body>
-      <section class="container-fluid">
-          <nav class="navbar navbar-custom" >
-              <div class="container-fluid">
-                  <div class="navbar-header">
-                      <a class="navbar-brand" href="#">Magic Board</a>
-                  </div>
-                  <div>
-                      <ul class="nav navbar-nav">
-                          <li><a href="#" class="dropdown-toggle" data-toggle="dropdown">Documents<span class="caret"></span>
-                              <ul class="dropdown-menu" id="documentMenu">
-                                  <li><a href="#">BRD</a></li>
-                                  <li><a href="#">HLD</a></li>
-                                  <li><a href="#">LLD</a></li>
-                              </ul></a></li>
-                          <li><a href="#">Login</a></li>
-                      </ul>
-                  </div>
-              </div>
-          </nav>
-          <div class="row">
-              <section class="col-sm-2 vertBox" style="border-right:1px dotted #229922">
-                  <!-- menu starts here -->
+                    .navbar-custom .navbar-nav > li > a {
+                        color:#fff;
+                    }
+                    .navbar-custom .navbar-nav > .active > a, .navbar-nav > .active > a:hover, .navbar-nav > .active > a:focus {
+                        color: #ffffff;
+                        background-color:transparent;
+                    }
+                    .navbar-custom .navbar-brand {
+                        color:#eeeeee;
+                    }
+                    
+                    .vertBox {
+                        height:800px;
+                    }
+                    
+                    .imgIcon {
+                        float:left;height:35px;
+                    }
+                    </style>
+                    <script src="js/MagicBoard.js" ></script>
+                    <!--
+                     <script src="js/base.js" ></script>
+                     <script src="js/event.js" ></script>
+                     <script src="js/utility.js" ></script>
+                     <script src="js/logger.js" ></script>
+                     -->
+                    <script>
+                        
+                        
+                        function allowDrop(ev) {
+                            ev.preventDefault();
+                        }
+                    
+                    function drag(ev) {
+                        ev.dataTransfer.setData("text", ev.target.id);
+                    }
+                    
+                    var fileType , fileName;
+                    function drop(ev) {
+                        ev.preventDefault();
+                        var dt = ev.dataTransfer;
+                        var data = ev.dataTransfer.getData("text");
+                        var files = dt.files; var fLen = files.length;
+                        
+                        if (!data && fLen)
+                        {  // this means external files are dragged
+                            //tempDraw();
+                            for (var i = 0; i < files.length; i++) {
+                                var file = files[i];
+                                fileType = file.type;
+                                fileName = file.name;
+                                
+                                var fArray = fileName.split(".");
+                                if (fArray[fArray.length - 1] === "svg") fileType = "image/svg+xml";
+                                else if (fArray[fArray.length - 1] === "json") fileType = "application/json";
+                                fArray.pop();
+                                fileName = fArray.join(".");
+                                var reader = new FileReader();
+                                
+                                reader.onload = function(e) {
+                                    if (fileType === "image/svg+xml")
+                                    {
+                                        var svg = reader.result;
+                                        currentSheetName = MagicBoard.sheetBook.currentSheet.name;
+                                        var newSheet = Utility.SheetBook.createSheet(fileName,svg);
+                                        
+                                        addNewSheetTab(fileName);
+                                        var shapes = newSheet.shapes;
+                                        for (var s = 0,sLen = shapes.length; s < sLen;s++)
+                                        {
+                                            var shape = shapes[s];
+                                            shape.events = {
+                                                "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
+                                                "click":{"override":null,"post":"showProperty","pre":null},
+                                                "hover":{"override":null,"post":null,"pre":null},
+                                                "doubleClick":{"override":null,"post":null,"pre":null}};
+                                        }
+                                        // draw the sheet
+                                    } else if (fileType === "application/json")
+                                    {
+                                        var jsonString = reader.result;
+                                        var obj = JSON.parse(jsonString);
+                                        var sheet1 = new Sheet(obj);
+                                        MagicBoard.sheetBook.addSheet(sheet1);
+                                        MagicBoard.sheetBook.setCurrentSheet(sheet1);
+                                        Utility.Sheet.connectIds();
+                                    }
+                                    
+                                }
+                                
+                                reader.readAsText(file);
+                            }
+                        } else
+                        {
+                            var pos = MagicBoard.getPos(ev);
+                            pos.x = Math.round(pos.x); pos.y = Math.round(pos.y);
+                            // find if id is in the list to be made child object
+                            if (makeMeChildList[data])
+                            {
+                                var shapes = MagicBoard.sheetBook.currentSheet.findShapeByPosition(pos);
+                                if (shapes.length > 0)
+                                {
+                                    // take the first shape and use that as parent;
+                                    addObject(data,false,pos,true,shapes[0]);
+                                    return;
+                                }
+                                
+                                
+                            }
+                            
+                            addObject(data,false,pos,true);
+                            
+                        }
+                        
+                        
+                        //ev.target.appendChild(document.getElementById(data));
+                    }
+                    
+                    var makeMeChildList = {"mText":true,"mText1":true};
+                    
+                    function downloadSheetImage(type)
+                    {
+                        var sheet = MagicBoard.sheetBook.currentSheet;
+                        var extension = "";
+                        var imageObj = sheet.getImage(type);
+                        var dataURL = imageObj.dataURL;
+                        if (type === "svg")
+                        {
+                            //dataURL = 'data:image/svg+xml;utf8,' + encodeURI(dataURL);
+                            dataURL = 'data:text/html;base64,' + btoa(dataURL);
+                            alert("Temporarily saving as .html, please rename it to .svg after download");
+                        } else
+                        {
+                            
+                            if (type === "pdf")
+                            {
+                                var doc = new jsPDF();
+                                
+                                doc.addImage(dataURL, 'png',0, 0, imageObj.width, imageObj.height);
+                                var blob = doc.output();
+                                dataURL = "data:application/pdf;base64,"+btoa(blob);
+                            } else dataURL = dataURL.replace("data:image/png","data:application/octet-stream");
+                        }
+                        
+                        var a = document.createElement("a");
+                        if (type === "png") a.setAttribute("download",sheet.name+"."+type);
+                        else a.setAttribute("download",sheet.name);
+                        
+                        a.href = dataURL;
+                        a.click();
+                        
+                    }
+                    
+                    
+                    var beginShape,endShape,cLine;
+                    function promptLineType(_endShape)
+                    {
+                        beginShape = this;
+                        endShape = _endShape;
+                        $("#lineTypePrompt").show();
+                    }
+                    
+                    function changeLineType()
+                    {
+                        cLine = this;
+                        beginShape = cLine.cInfo.beginShape;
+                        endShape = cLine.cInfo.endShape;
+                        $("#lineTypePrompt").show();
+                    }
+                    
+                    function deleteLine()
+                    {
+                        if (cLine) cLine.deleteShape();
+                        Utility.SheetBook.clearScratchCanvas();
+                        $("#lineTypePrompt").hide();
+                    }
+                    //
+                    
+                    function applyConnector()
+                    {
+                        var list = $(".connActive");
+                        var connectProp = {"type":"DIRECT","end":null,"begin":null,"style":"SOLID"};
+                        for (var i = 0, iLen = list.length;i < iLen;i++)
+                        {
+                            var el = list[i];
+                            var id = el.getAttribute("id");
+                            switch (id)
+                            {
+                                
+                                case "oneFillArrowEndDiv":
+                                connectProp.end = "FILLED";
+                                break;
+                                case "oneRoundEndDiv":
+                                connectProp.end = "DOT";
+                                break;
+                                case "oneHollowArrowEndDiv":
+                                connectProp.end = "HOLLOW";
+                                break;
+                                case "oneArrowEndDiv":
+                                connectProp.end = "REGULAR";
+                                break;
+                                case "diamondFilledEndDiv":
+                                connectProp.end = "DIAMONDFILLED";
+                                break;
+                                case "diamondHollowEndDiv":
+                                connectProp.end = "DIAMONDHOLLOW";
+                                break;
+                                case "oneFillArrowBeginDiv":
+                                connectProp.begin = "FILLED";
+                                break;
+                                case "diamondFilledBeginDiv":
+                                connectProp.begin = "DIAMONDFILLED";
+                                break;
+                                case "diamondHollowBeginDiv":
+                                connectProp.begin = "DIAMONDHOLLOW";
+                                break;
+                                case "oneRoundBeginDiv":
+                                connectProp.begin = "DOT";
+                                break;
+                                case "oneHollowArrowBeginDiv":
+                                connectProp.begin = "HOLLOW";
+                                break;
+                                case "oneArrowBeginDiv":
+                                connectProp.begin = "REGULAR";
+                                break;
+                                case "solidDiv":
+                                connectProp.style = "SOLID";
+                                break;
+                                case "dottedDiv":
+                                connectProp.style = "DOTTED";
+                                break;
+                                case "dashedDiv":
+                                connectProp.style = "DASHED";
+                                break;
+                                case "directConnectDiv":
+                                connectProp.type = "DIRECT";
+                                break;
+                                case "horizagDiv":
+                                connectProp.type = "ONEBEND";
+                                break;
+                                case "zigzagDiv":
+                                connectProp.type = "TWOBEND";
+                                break;
+                                case "curvedDiv":
+                                connectProp.type = "CURVED";
+                                break;
+                            }
+                        }
+                        Utility.Shape.connectTo(beginShape,endShape,connectProp);
+                        //beginShape.connectTo(endShape,connectProp);
+                    }
+                    
+                    
+                    var prevConnectType = "directConnect";
+                    function connectShape(_connectType)
+                    {
+                        if (prevConnectType)
+                        {
+                            $("#"+prevConnectType+"Div").toggleClass("connActive connInactive");
+                            if (prevConnectType === _connectType) {prevConnectType = "";return;}
+                        }
+                        $("#"+_connectType+"Div").toggleClass("connActive connInactive");
+                        prevConnectType = _connectType;
+                    }
+                    
+                    var prevArrowEType = "oneFillArrowEnd";
+                    function drawArrowE(_arrowType)
+                    {
+                        if (prevArrowEType)
+                        {
+                            $("#"+prevArrowEType+"Div").toggleClass("connActive connInactive");
+                            if (prevArrowEType === _arrowType) {prevArrowEType = "";return;}
+                        }
+                        
+                        $("#"+_arrowType+"Div").toggleClass("connActive connInactive");
+                        prevArrowEType = _arrowType;
+                    }
+                    
+                    var prevArrowBType = "";
+                    function drawArrowB(_arrowType)
+                    {
+                        if (prevArrowBType)
+                        {
+                            $("#"+prevArrowBType+"Div").toggleClass("connActive connInactive");
+                            if (prevArrowBType === _arrowType) {prevArrowBType = "";return;}
+                        }
+                        
+                        $("#"+_arrowType+"Div").toggleClass("connActive connInactive");
+                        prevArrowBType = _arrowType;
+                    }
+                    
+                    var prevLineType = "solid";
+                    function drawLine(_lineType)
+                    {
+                        if (prevLineType)
+                        {
+                            $("#"+prevLineType+"Div").toggleClass("connActive connInactive");
+                            if (prevLineType === _lineType) {prevLineType = "";return;}
+                        }
+                        
+                        $("#"+_lineType+"Div").toggleClass("connActive connInactive");
+                        prevLineType = _lineType;
+                    }
+                    function  showProperty()
+                    {
+                        if (!MagicBoard.indicators.hilight) {
+                            $("#propertyAccordion").hide();
+                        } else {
+                            // prefill it before show
+                            var shape = MagicBoard.indicators.hilight;
+                            var props = shape.getProperties();
+                            var groups = {};
+                            // sort props by groups
+                            for (var i = 0,iLen = props.length;i < iLen; i++)
+                            {
+                                var groupName = props[i].group;
+                                if (!groups[groupName]) groups[groupName] = [];
+                                groups[groupName].push(props[i]);
+                            }
+                            var accordion =  $("#propertyAccordion");
+                            var htmlString =
+                            //
+                            "<div class=\"panel panel-primary\"  style=\"border-color:rgb(27,141,17);\">"+
+                            "<div class=\"panel-body\">"+
+                            "<img src=\"image/cancel_ic.png\" style='position:absolute;left:-10px;top:-10px;width:25px;' onclick='ObjectFunctions.deSelect()'/>"+
+                            "<div style='float:left;width:25px;font-size:8px;;margin-left:11px;' onclick='ObjectFunctions.deSelect()'><div>Apply</div><img src=\"image/apply_ic.png\" width='25px' /></div>"+
+                            "<div style='float:left;font-size:8px;margin-left:12px;' onclick='ObjectFunctions.copy()'><div>Copy</div><img src=\"image/copy_ic.png\" style='width:25px;' /></div>"+
+                            "<div style='float:left;font-size:8px;;margin-left:12px;' onclick='ObjectFunctions.paste()'><div>Paste</div><img src=\"image/paste_ic.png\" style='width:25px;'/></div>"+
+                            "<div style='float:left;font-size:8px;;margin-left:12px;' onclick='ObjectFunctions.delete()'><div>Delete</div><img src=\"image/delete_ic.png\" style='width:25px;'/></div>"+
+                            "</div>"+
+                            "</div>";
+                            
+                            /*
+                             background-color: Object
+                             keyName : background-color
+                             field: "input"
+                             label: "Background Color"
+                             propName: "fill"
+                             propType: "attribute"
+                             values: Array[1]
+                             0: Object
+                             name: ""
+                             type: "color"
+                             value: "#1b8d11"
+                             */
+                            var active = " in", expanded = "true";
+                            var seq = 0;
+                            for (var g in groups)
+                            {
+                                htmlString += '<div class="panel panel-primary" id="P'+seq+'Panel" style="border-color:rgb(27,141,17)">' +
+                                '<div class="panel-heading" style="background:rgb(27,141,17);color:#ffffff;border-color:rgb(27,141,17)" >' +
+                                '<h4 class="panel-title" >' +
+                                '<a data-toggle="collapse" id="g'+seq+'" data-parent="#propertyAccordion" href="#P'+seq+'List"  class="collapsed" aria-expanded="'+expanded+'">' +
+                                g +
+                                '</a>'+
+                                '</h4>'+
+                                '</div>'+
+                                '<section class="panel-collapse collapse'+active+'" id="P'+seq+'List" aria-expanded="'+expanded+'">';
+                                var prp = groups[g];
+                                for (var i = 0,iLen = prp.length;i < iLen; i++)
+                                {
+                                    var prop = prp[i]; var p = prop.keyName;
+                                    htmlString += '<div class="panel-body">' +
+                                    '<center>'+
+                                    getPropertyField(prop,p)+
+                                    '</center>';
+                                }
+                                
+                                htmlString += '</div>'+
+                                '</section>'+
+                                '</div>';
+                                active = '',expanded = 'false'; seq++;
+                            }
+                            
+                            /*
+                             for (var i = 0,iLen = props.length;i < iLen; i++)
+                             {
+                             var prop = props[i]; var p = prop.keyName;var pid = p+i;
+                             htmlString += '<div class="panel panel-primary" id="'+pid+'Panel" style="border-color:rgb(27,141,17)">' +
+                             '<div class="panel-heading" style="background:rgb(27,141,17);color:#ffffff;border-color:rgb(27,141,17)" >' +
+                             '<h4 class="panel-title" >' +
+                             '<a data-toggle="collapse" id="'+p+'" data-parent="#propertyAccordion" href="#'+pid+'List"  class="collapsed" aria-expanded="'+expanded+'">' +
+                             prop.label +
+                             '</a>'+
+                             '</h4>'+
+                             '</div>'+
+                             '<section class="panel-collapse collapse'+active+'" id="'+pid+'List" aria-expanded="'+expanded+'">'+
+                             '<div class="panel-body"><center>'+
+                             getPropertyField(prop,p)+
+                             '</center></div>'+
+                             '</section>'+
+                             '</div>';
+                             active = '',expanded = 'false';
+                             }
+                             */
+                            accordion.html(htmlString).show();
+                        }
+                    }
+                    
+                    function getPropertyField(prop,pKey)
+                    {
+                        var str = "";
+                        if (prop.field === "input")
+                        {
+                            var func = "onchange";
+                            if (prop.propType === "text") func = "onblur";
+                            str =  '<div style="font-size:10px;">'+prop.label+':</div><input '+func+'="applyProperty()" data-label="'+prop.label+'" data-group="'+prop.group+'" data-name="'+prop.propName+'" data-type="'+prop.propType+'" data-key="'+pKey+'" type="'+prop.values[0].type+'" value="'+prop.values[0].value+'"/>'
+                        } else if (prop.field === "select")
+                        {
+                            str = '<select onchange="applyProperty()" data-type="'+prop.propType+'" data-key="'+pKey+'">';
+                            for (var v = 0,vLen = prop.values.length;v < vLen;v++)
+                            {
+                                str += '<option value="'+prop.values[v].value+'" >'+prop.values[v].name+'</option>';
+                            }
+                            str += '</select>';
+                        }
+                        return str;
+                    }
+                    
+                    function applyProperty()
+                    {
+                        //(_propKey,_propName,_propType,_value,_propLabel)
+                        var shape = MagicBoard.indicators.hilight;
+                        var target = event.target;
+                        var pKey = target.getAttribute("data-key");
+                        if (target.nodeName === "INPUT")
+                        {
+                            shape.applyProperty(pKey,target.getAttribute("data-name"),target.getAttribute("data-type"),target.value,target.getAttribute("data-label"),target.getAttribute("data-group"));
+                        }
+                    }
+                    
+                    var ObjectFunctions = {};
+                    ObjectFunctions.deSelect = function()
+                    {
+                        $("#propertyAccordion").hide();
+                        var currentShape = MagicBoard.indicators.hilight;
+                        currentShape.selectToggle();
+                    }
+                    
+                    ObjectFunctions.delete = function()
+                    {
+                        $("#propertyAccordion").hide();
+                        var currentShape = MagicBoard.indicators.hilight;
+                        currentShape.selectToggle();
+                        currentShape.deleteShape();
+                    }
+                    
+                    ObjectFunctions.copy = function()
+                    {
+                        MagicBoard.scratch.copy = [];
+                        MagicBoard.scratch.copy.push(MagicBoard.indicators.hilight);
+                        alert("Shape Copied");
+                    }
+                    
+                    ObjectFunctions.paste = function()
+                    {
+                        if (!MagicBoard.scratch.copy) return;
+                        if (MagicBoard.scratch.copy.length === 0) return;
+                        var shape = MagicBoard.scratch.copy[0];
+                        var shapeDetail = shape.getShapeDetail();
+                        var cloneShape = new Shape(shapeDetail);
+                        cloneShape.draw();
+                        cloneShape.setPosition({x:(shape.dimension.right+20),y:shape.dimension.top});
+                    }
+                    
+                    function addObject(id,noDraw,pos,cnter,_parent)
+                    {
+                        var shapeDetail = customShapes[id];
+                        if (_parent)
+                        {
+                            shapeDetail.parent = _parent;
+                        }
+                        var s = new Shape(shapeDetail);
+                        s.events = {
+                            "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
+                            "click":{"override":null,"post":"showProperty","pre":null},
+                            "hover":{"override":null,"post":null,"pre":null},
+                            "doubleClick":{"override":null,"post":null,"pre":null}};
+                        
+                        if (!noDraw)
+                        {
+                            s.draw();
+                            if (pos) {
+                                if (cnter)
+                                {
+                                    var x = pos.x -  s.dimension.width /2;
+                                    var y = pos.y - s.dimension.height /2;
+                                    s.setPosition({x:x,y:y},true);
+                                    
+                                } else s.setPosition(pos,true); // setposition with align option
+                            } else
+                            {
+                                var sheet = MagicBoard.sheetBook.currentSheet;
+                                var margin = 15;
+                                var potentialGridSeqs = Utility.Sheet.isGridAvailable(-1,sheet,s);
+                                if (potentialGridSeqs.length > 0)
+                                {
+                                    var grid = sheet.courseGrids[potentialGridSeqs[0]];
+                                    s.setPosition({"x":(grid.x1 + margin),"y":(grid.y1+margin)});
+                                } else  s.setPosition({"x":120,"y":120});
+                                
+                            }
+                        }
+                        
+                        return s;
+                    }
+                    
+                    
+                    var uml11 = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"#1b8d11","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
+                    var txt = {type:"text",dimension:{width:100,height:10,x:30,y:56},param:{"font-size":14,fill:"black","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Text","properties":{ "text":{"group":"Text","label":"Value"},"text-color":{"group":"Text","label":"Color"}}};
+                    var obj = {type:"text",dimension:{width:100,height:10,x:30,y:60},param:{"font-size":14,fill:"#ffffff"},"innerHTML":"Object"};
+                    var obj1 = {type:"text",dimension:{width:100,height:8,x:50,y:5},param:{"font-size":14,fill:"#ffffff","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":":Object","properties":{ "text":{"group":"Text - Object","label":"Value"},"text-color":{"group":"Text Object","label":"Color"}}};
+                    var usecase = {type:"text",dimension:{width:100,height:10,x:50,y:50},param:{"font-size":14,fill:"#ffffff","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Use Case","properties":{  "text":{"group":"UseCase - Text","label":"Value"},"text-color":{"group":"UseCase - Text","label":"Color"}}};
+                    var proc = {type:"text",dimension:{width:100,height:10,x:50,y:50},param:{"font-size":14,"fill":"#ffffff","text-anchor":"middle" ,"alignment-baseline":"middle"},"innerHTML":"Process","properties":{"text":{"group":"Process - Text","label":"Value"},"text-color":{"group":"Process - Text","label":"Color"}}};
+                    var actor = {type:"text",dimension:{width:100,height:100,x:4,y:90},param:{"font-size":14,"fill":"#1b8d11"},"innerHTML":"Actor"};
+                    var hRail = {type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"#1b8d11","border-radius":8}};
+                    //
+                    uml120 = {"type":"rect","dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#ffffff","pointer-events":"all"}}
+                    var uml121 = {"type":"ellipse","origDim":{"cx":13,"cy":7,"rx":7.5,"ry":7.5},"dimension":{"cx":47,"cy":11.864406779661017,"rx":25,"ry":12.711864406779661},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"}}
+                    
+                    var uml122 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":23.728813559322035},{"op":"L","x":50,"y":66.10169491525424},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":0,"y":39.20338983050848},{"op":"M","x":50,"y":39.20338983050848},{"op":"L","x":100,"y":39.20338983050848},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":0,"y":100},{"op":"M","x":50,"y":66.10169491525424},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":2},"lines":[{"op":"M","x":15,"y":14},{"op":"L","x":15,"y":39},{"op":"M","x":15,"y":19},{"op":"L","x":0,"y":19},{"op":"M","x":15,"y":19},{"op":"L","x":30,"y":19},{"op":"M","x":15,"y":39},{"op":"L","x":0,"y":59},{"op":"M","x":15,"y":39},{"op":"L","x":30,"y":59}]}
+                    var uml130 = {"type":"ellipse","origDim":{"cx":70,"cy":35,"rx":70,"ry":35},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all","stroke-width":1}}
+                    // flow
+                    var flowData = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":16.666666666666668,"y":8.474576271186441},{"op":"L","x":100,"y":0},{"op":"L","x":84.44444444444444,"y":91.52542372881356},{"op":"L","x":0,"y":100},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":15,"y":5},{"op":"L","x":90,"y":0},{"op":"L","x":76,"y":54},{"op":"L","x":0,"y":59},{"op":"Z"}]};
+                    
+                    var flowDB1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":83.33333333333333},{"op":"L","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":6.666666666666667,"x2":21.666666666666668,"y2":0,"x":50,"y":0},{"op":"C","x1":76.66666666666667,"y1":0,"x2":100,"y2":6.666666666666667,"x":100,"y":16.666666666666668},{"op":"L","x":100,"y":83.33333333333333},{"op":"C","x1":100,"y1":91.66666666666667,"x2":76.66666666666667,"y2":100,"x":50,"y":100},{"op":"C","x1":21.666666666666668,"y1":100,"x2":0,"y2":91.66666666666667,"x":0,"y":83.33333333333333},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":50},{"op":"L","x":0,"y":10},{"op":"C","x1":0,"y1":4,"x2":13,"y2":0,"x":30,"y":0},{"op":"C","x1":46,"y1":0,"x2":60,"y2":4,"x":60,"y":10},{"op":"L","x":60,"y":50},{"op":"C","x1":60,"y1":55,"x2":46,"y2":60,"x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":55,"x":0,"y":50},{"op":"Z"}]}
+                    var flowDB2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":25,"x2":21.666666666666668,"y2":33.333333333333336,"x":50,"y":33.333333333333336},{"op":"C","x1":76.66666666666667,"y1":33.333333333333336,"x2":100,"y2":25,"x":100,"y":16.666666666666668}]},"param":{"fill":"none","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":10},{"op":"C","x1":0,"y1":15,"x2":13,"y2":20,"x":30,"y":20},{"op":"C","x1":46,"y1":20,"x2":60,"y2":15,"x":60,"y":10}]};
+                    var flowDecision1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":50,"y":0},{"op":"L","x":100,"y":50},{"op":"L","x":50,"y":100},{"op":"L","x":0,"y":50},{"op":"Z"}]};
+                    
+                    
+                    var flowDoc1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":5.555555555555555},{"op":"C","x1":0,"y1":2.7777777777777777,"x2":2.0408163265306123,"y2":0,"x":5.1020408163265305,"y":0},{"op":"L","x":93.87755102040816,"y":0},{"op":"C","x1":96.93877551020408,"y1":0,"x2":100,"y2":2.7777777777777777,"x":100,"y":5.555555555555555},{"op":"L","x":100,"y":72.22222222222223},{"op":"C","x1":82.65306122448979,"y1":51.388888888888886,"x2":66.3265306122449,"y2":37.5,"x":50,"y":72.22222222222223},{"op":"C","x1":32.6530612244898,"y1":100,"x2":16.3265306122449,"y2":80.55555555555556,"x":0,"y":62.5},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"rgb(27,144,17)","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":4},{"op":"C","x1":0,"y1":2,"x2":2,"y2":0,"x":5,"y":0},{"op":"L","x":92,"y":0},{"op":"C","x1":95,"y1":0,"x2":98,"y2":2,"x":98,"y":4},{"op":"L","x":98,"y":52},{"op":"C","x1":81,"y1":37,"x2":65,"y2":27,"x":49,"y":52},{"op":"C","x1":32,"y1":72,"x2":16,"y2":58,"x":0,"y":45},{"op":"Z"}]};
+                    
+                    var flowManual1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":41.666666666666664},{"op":"L","x":94,"y":0},{"op":"C","x1":96,"y1":0,"x2":97,"y2":0,"x":98,"y":1.6666666666666667},{"op":"C","x1":99,"y1":3.3333333333333335,"x2":99,"y2":5,"x":99,"y":8.333333333333334},{"op":"L","x":99,"y":91.66666666666667},{"op":"C","x1":100,"y1":95,"x2":98,"y2":98.33333333333333,"x":95,"y":100},{"op":"L","x":5,"y":100},{"op":"C","x1":3,"y1":100,"x2":2,"y2":98.33333333333333,"x":1,"y":96.66666666666667},{"op":"C","x1":0,"y1":95,"x2":0,"y2":93.33333333333333,"x":0,"y":91.66666666666667},{"op":"L","x":0,"y":41.666666666666664},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"}};
+                    
+                    var flowIstorage0 = {"type":"rect","origDim":{"x":0,"y":0,"width":70,"height":70,"rx":5,"ry":5},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":7.142857142857143,"ry":7.142857142857143},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","pointer-events":"all"},"lines":[]};
+                    var flowIstorage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":21.428571428571427},{"op":"L","x":100,"y":21.428571428571427}]},"param":{"fill":"none","stroke":"#ffffff","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":15},{"op":"L","x":70,"y":15}]};
+                    var flowIstorage2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":21.428571428571427,"y":0},{"op":"L","x":21.428571428571427,"y":100}]},"param":{"fill":"none","stroke":"#ffffff","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":15,"y":0},{"op":"L","x":15,"y":70}]}
+                    
+                    var flowSeqData0  = {"type":"ellipse","origDim":{"cx":50,"cy":50,"rx":50,"ry":50},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","pointer-events":"all"},"lines":[]};
+                    var flowSeqData1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":50,"y":100},{"op":"L","x":100,"y":100}]};
+                    var flowPreDef0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":60,"rx":4.03,"ry":4.03},"dimension":{"x":0,"y":0,"width":100,"height":100,"rx":4.03,"ry":6.716666666666667},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"1","pointer-events":"all"},"lines":[]};
+                    var flowPreDef1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":14,"y":0},{"op":"L","x":14,"y":100}]},"param":{"fill":"none","stroke":"#ffffff","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":14,"y":0},{"op":"L","x":14,"y":60}]};
+                    var flowPreDef2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":85,"y":0},{"op":"L","x":85,"y":100}]},"param":{"fill":"none","stroke":"#ffffff","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":85,"y":0},{"op":"L","x":85,"y":60}]}
+                    
+                    var flowStored0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1.6666666666666667,"x":99,"y":3.3333333333333335},{"op":"C","x1":95,"y1":10,"x2":92,"y2":28.333333333333332,"x":92,"y":50},{"op":"C","x1":92,"y1":70,"x2":95,"y2":88.33333333333333,"x":99,"y":96.66666666666667},{"op":"C","x1":100,"y1":96.66666666666667,"x2":100,"y2":98.33333333333333,"x":99,"y":100},{"op":"L","x":10,"y":100},{"op":"C","x1":4,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":10,"y":0},{"op":"L","x":99,"y":0},{"op":"C","x1":100,"y1":0,"x2":100,"y2":1,"x":99,"y":2},{"op":"C","x1":95,"y1":6,"x2":92,"y2":17,"x":92,"y":30},{"op":"C","x1":92,"y1":42,"x2":95,"y2":53,"x":99,"y":58},{"op":"C","x1":100,"y1":58,"x2":100,"y2":59,"x":99,"y":60},{"op":"L","x":10,"y":60},{"op":"C","x1":4,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":4,"y2":0,"x":10,"y":0},{"op":"Z"}]}
+                    
+                    var flowStart0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":21.666666666666668,"x":100,"y":50},{"op":"C","x1":100,"y1":76.66666666666667,"x2":86,"y2":100,"x":69,"y":100},{"op":"L","x":30,"y":100},{"op":"C","x1":13,"y1":100,"x2":0,"y2":76.66666666666667,"x":0,"y":50},{"op":"C","x1":0,"y1":21.666666666666668,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":30,"y":0},{"op":"L","x":69,"y":0},{"op":"C","x1":86,"y1":0,"x2":100,"y2":13,"x":100,"y":30},{"op":"C","x1":100,"y1":46,"x2":86,"y2":60,"x":69,"y":60},{"op":"L","x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":46,"x":0,"y":30},{"op":"C","x1":0,"y1":13,"x2":13,"y2":0,"x":30,"y":0},{"op":"Z"}]}
+                    
+                    
+                    var laneV1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":4.55531453362256},{"op":"L","x":0,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":0.21691973969631237},{"op":"L","x":89.55223880597015,"y":4.55531453362256},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":21},{"op":"L","x":0,"y":1},{"op":"L","x":120,"y":1},{"op":"L","x":120,"y":21},{"op":"Z"}]}
+                    
+                    var laneV2 = {"type":"text","origDim":{"x":34,"y":18},"dimension":{"x":27.419354838709676,"y":3.9045553145336225},"param":{"fill":"#ffffff"},"lines":[],innerHTML:"Lane"}
+                    
+                    var laneV3 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":100,"y":100},{"op":"L","x":100,"y":0}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"2","pointer-events":"none"},"lines":[{"op":"M","x":134,"y":461},{"op":"L","x":134,"y":0}]}
+                    var ie1 = {"type":"image","origDim":{x:0,y:0,width:484,height:456},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/ie.png"}
+                    var server1 = {"type":"image","origDim":{x:0,y:0,width:369,height:512},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/server.png"}
+                    var firewall1 = {"type":"image","origDim":{x:0,y:0,width:370,height:250},"dimension":{x:1,y:1,width:100,height:100},"param":{},"xlink":"image/firewall.png"}
+                    
+                    // uml frames
+                    /*
+                     var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]}
+                     
+                     var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]}
+                     
+                     */
+                    var umlFrame0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":20,"y":0},{"op":"L","x":20,"y":7.5},{"op":"L","x":16.666666666666668,"y":15},{"op":"L","x":0,"y":15},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"1","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":60,"y":0},{"op":"L","x":60,"y":15},{"op":"L","x":50,"y":30},{"op":"L","x":0,"y":30},{"op":"Z"}]
+                        ,"properties":{ "background-color":{"group":"Frame Background","label":"BgColor"},"line-color":{"group":"Frame Background","label":"Border Color"}}
+                    }
+                    
+                    var umlFrame1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":20,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":15}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-width":"1"},"lines":[{"op":"M","x":60,"y":0},{"op":"L","x":300,"y":0},{"op":"L","x":300,"y":200},{"op":"L","x":0,"y":200},{"op":"L","x":0,"y":30}]
+                        ,"properties":{ "line-color":{"group":"Frame Line","label":"Line Color"}}
+                    }
+                    //
+                    var umlLifeLine0 = {"type":"rect","origDim":{"x":0,"y":0,"width":100,"height":40},"dimension":{"x":0,"y":0,"width":100,"height":8.333333333333334},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
+                    
+                    var umlLifeLine1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":50,"y":8.333333333333334},{"op":"L","x":50,"y":100}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-miterlimit":"10","stroke-dasharray":"3 3"},"lines":[{"op":"M","x":50,"y":40},{"op":"L","x":50,"y":300}]}
+                    
+                    //
+                    var umlActivity0 = {"type":"rect","origDim":{"x":0,"y":0,"width":20,"height":80},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all"},"lines":[]}
+                    // UML Class
+                    
+                    var umlClass0 = {"type":"rect","origDim":{"x":0,"y":0,"width":160,"height":90},"dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke":"#ffffff","pointer-events":"all"},"lines":[]}
+                    
+                    var umlClassText = {type:"text",dimension:{width:100,height:10,x:30,y:18},param:{"font-size":12,fill:"#ffffff"},"innerHTML":"ClassName"
+                        ,"properties":{  "text":{"group":"Class - Text","label":"Value"},"text-color":{"group":"Class - Text","label":"Color"}}
+                    };
+                    
+                    var umlClass1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28.88888888888889},{"op":"L","x":0,"y":0},{"op":"L","x":100,"y":0},{"op":"L","x":100,"y":28.88888888888889},{"op":"Z"}]},"param":{"fill":"#1b8d11","stroke":"#ffffff","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":26},{"op":"L","x":0,"y":0},{"op":"L","x":160,"y":0},{"op":"L","x":160,"y":26},{"op":"Z"}]}
+                    
+                    var umlFieldText = {type:"text",dimension:{width:100,height:10,x:14,y:52},param:{"font-size":12,fill:"#ffffff"},"innerHTML":"+field:type" ,"properties":{  "text":{"group":"Field - Text","label":"Value"},"text-color":{"group":"Field - Text","label":"Color"} }};
+                    
+                    var umlClass2 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":62.22222222222222},{"op":"L","x":100,"y":62.22222222222222}]},"param":{"fill":"none","stroke":"#ffffff","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":56},{"op":"L","x":160,"y":56}]}
+                    
+                    var umlMethodText = {type:"text",dimension:{width:100,height:10,x:14,y:84},param:{"font-size":12,fill:"#ffffff"},"innerHTML":"+method(type):type" ,"properties":{  "text":{"group":"Method - Text","label":"Value"},"text-color":{"group":"Method - Text","label":"Color"}}};
+                    
+                    var umlPackage0 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":0},{"op":"L","x":57.142857142857146,"y":0},{"op":"L","x":57.142857142857146,"y":28},{"op":"L","x":100,"y":28},{"op":"L","x":100,"y":100},{"op":"L","x":0,"y":100},{"op":"L","x":0,"y":28},{"op":"Z"}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":0},{"op":"L","x":40,"y":0},{"op":"L","x":40,"y":14},{"op":"L","x":70,"y":14},{"op":"L","x":70,"y":50},{"op":"L","x":0,"y":50},{"op":"L","x":0,"y":14},{"op":"Z"}]}
+                    
+                    var umlPackage1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":28},{"op":"L","x":57.142857142857146,"y":28}]},"param":{"fill":"none","stroke":"#1b8d11","stroke-width":"2","stroke-miterlimit":"10"},"lines":[{"op":"M","x":0,"y":14},{"op":"L","x":40,"y":14}]}
+                    
+                    
+                    
+                    
+                    //
+                    var defaultSheet = "Sheet1";
+                    var currentSheetName = defaultSheet;
+                    var customShapes = {
+                        "layers":{
+                            "frame":{"left":10,"width":"80%","height":150,"border":"1px solid","border-radius":"10px","unit":"px"},"param":{"alignmentRails":true},"componentParms":[
+                                                                         hRail
+                                                                                                                                                                                     ]
+                        },
+                       "process":{
+                            "frame":{"left":100,"top":100,"width":124,"height":84,"border":"1px solid","border-radius":"10px","unit":"px"},
+                            "param":{"alignmentRails":true},
+                            "componentParms":[uml11,proc
+                                              ]
+                        },
+                        "umlObject":{
+                            frame:{width:110,height:50,unit:"px"},
+                            param:{alignmentRails:true},
+                            componentParms:[uml11,obj]
+                        },
+                        /*
+                         "uml12":{"type":"Custom","style":{left:100,top:100,width:60,height:120},"html":"<circle cx='15' cy='8' r='7.5' fill='rgb(27,141,17)' stroke='rgb(27,141,17)' ></circle><path d='M 15 15 L 15 40 M 15 20 L 0 20 M 15 20 L 30 20 M 15 40 L 0 60 M 15 40 L 30 60' fill='none' stroke='rgb(27,141,17)' stroke-miterlimit='10'></path>","children":["Actor"]},
+                         */
+                        "uml12":{"frame":{"width":30,"height":59,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[uml120,uml121,uml122]},
+                        
+                        "uml13":{"frame":{"width":145,"height":75,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[uml130,usecase]},
+                        "poolV":{"type":"Custom","style":{left:100,top:100,width:250,height:"80%","border-left":"1px solid","border-right":"1px solid"},"html":"<div></div>","children":["laneTitle"]},
+                        "bpm1":{"type":"Custom","style":{left:100,top:100,width:124,height:84},"html":"<rect x=\"2\" y=\"2\" width=\"120\" height=\"80\" rx=\"3\" ry=\"3\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\"></rect>","children":["task"]},
+                        "bpm2":{"type":"Custom","style":{left:100,top:100,width:124,height:84},"html":"<rect x=\"2\" y=\"2\" width=\"120\" height=\"80\" rx=\"12\" ry=\"12\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\" ></rect><rect x=\"4\" y=\"4\" width=\"116\" height=\"76\" rx=\"11.4\" ry=\"11.4\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\" ></rect>","children":["transaction"]},
+                        "bpm3":{"type":"Custom","style":{left:100,top:100,width:124,height:84},"html":"<rect x=\"2\" y=\"2\" width=\"120\" height=\"80\" rx=\"12\" ry=\"12\" fill=\"rgb(27,141,17)\" stroke=\"rgb(27,141,17)\" stroke-dashArray=\"1 4\" ></rect>"},
+                        "bpm4":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm4.png' />"},
+                        "bpm5":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm5.png' />"},
+                        "bpm6":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm6.png' />"},
+                        "bpm7":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm7.png' />"},
+                        "bpm8":{"type":"Custom","style":{left:100,top:100,width:120,height:80},"html":"<img width='120' height='80' src='image/bpm8.png' />"},
+                        "bpm9":{"type":"Custom","style":{left:100,top:100,width:140,height:80},"html":"<img width='140' height='80' src='image/bpm9.png' />"},
+                        "bpmg1":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpmg1.png' />"},
+                        "bpmg2":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpmg2.png' />"},
+                        "bpmg3":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpmg3.png' />"},
+                        "bpme1":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme1.png' />"},
+                        "bpme2":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme2.png' />"},
+                        "bpme3":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme3.png' />"},
+                        "bpme4":{"type":"Custom","style":{left:100,top:100,width:50,height:50},"html":"<img width='50' height='50' src='image/bpme4.png' />"},
+                        "processTitle":{"type":"Text","style":{left:0,top:"37%",width:"100%",height:30},"html":"<div >Process</div>","options":{"root":"center","alignmentRails":false}},
+                        "task":{"type":"Text","style":{left:0,top:"37%",width:"100%",height:30},"html":"<div >Task</div>","options":{"root":"center","alignmentRails":false}},
+                        "transaction":{"type":"Text","style":{left:26,top:36,width:100,height:30},"html":"<span>Transaction</span>","options":{"root":"center","alignmentRails":false}}
+                        ,
+                        "object":{"type":"Text","style":{left:40,top:20,width:100,height:30},"html":"<span>Object</span>","options":{"root":"center","alignmentRails":false}},
+                        "laneTitle":{"type":"Text","style":{left:0,top:0,width:"100%",height:30},"html":"<div >Title</div>","options":{"root":"center","alignmentRails":false}},
+                        "flowDataC":{"frame":{"width":90,"height":59,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowData]},
+                        "flowDB":{"frame":{"width":60,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowDB1,flowDB2]},
+                        "flowDecision": {"frame":{"width":100,"height":100,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowDecision1]},
+                        "flowDoc": {"frame":{"width":100,"height":70,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowDoc1]},
+                        "flowManual":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowManual1]},
+                        "flowIstorage":{"frame":{"width":70,"height":70,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowIstorage0,flowIstorage1,flowIstorage2]},
+                        "flowSeqData":{"frame":{"width":100,"height":100,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowSeqData0,flowSeqData1]},
+                        "flowPreDef":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowPreDef0,flowPreDef1,flowPreDef2]},
+                        "flowStored":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowStored0]},
+                        "flowStart":{"frame":{"width":100,"height":60,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[flowStart0]},
+                        "laneV":{"frame":{"width":182,"height":461,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[laneV1,laneV2,laneV3]},
+                        "ie":{"frame":{"width":60,"height":57,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[ie1]},
+                        "server":{"frame":{"width":102,"height":74,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[server1]},
+                        "firewall":{"frame":{"width":92,"height":83,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[firewall1]},
+                        "umlFrame":{"frame":{"width":300,"height":200,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlFrame0,umlFrame1]
+                            ,events : {
+                                "click":{"override":null,"post":"showProperty","pre":null},
+                                "hover":{"override":null,"post":null,"pre":null},
+                                "doubleClick":{"override":null,"post":null,"pre":null}}
+                        },
+                        "umlLifeLine":{"frame":{"width":100,"height":500,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlLifeLine0,obj1,umlLifeLine1]},
+                        "umlActivity":{"frame":{"width":25,"height":90,"unit":"px"},"param":{"alignmentRails":true,"connectInPlace":true},"componentParms":[umlActivity0]},
+                        "umlClass":{"frame":{"width":160,"height":90,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlClass0,umlClass1,umlClassText,umlFieldText,umlClass2,umlMethodText]
+                            ,events : {
+                                "connectTo":{"override":"promptLineType","click":{override:"changeLineType",pre:null,"post":null}},
+                                "click":{"override":null,"post":"showProperty","pre":null},
+                                "hover":{"override":null,"post":null,"pre":null},
+                                "doubleClick":{"override":null,"post":null,"pre":null}}
+                        },
+                        umlPackage:{"frame":{"width":70,"height":50,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[umlPackage0,umlPackage1]},
+                        mText:{"frame":{"width":70,"height":20,"unit":"px"},"param":{"alignmentRails":true},"componentParms":[txt]},
+                        "rectShape":{
+                            "frame":{"width":124,"height":84,"border":"1px solid","unit":"px"},
+                            "param":{"alignmentRails":true},
+                            "componentParms":[{"type":"rect","dimension":{"x":0,"y":0,"width":100,"height":100},"param":{"fill":"#1b8d11","stroke-width":1,"stroke":"#1b8d11"}}]
+                        },
+                        "circleShape":{
+                            "frame":{"width":110,"height":110,"border":"1px solid","unit":"px"},
+                            "param":{"alignmentRails":true},
+                            "componentParms":[{"type":"ellipse","origDim":{"cx":70,"cy":35,"rx":70,"ry":35},"dimension":{"cx":50,"cy":50,"rx":50,"ry":50},"param":{"fill":"#1b8d11","stroke":"#1b8d11","pointer-events":"all","stroke-width":1}},
+                                              "rectWRadius8":{"type":"rect","dimension":{"width":100,"height":100,"x":0,"y":0},"param":{"fill":"#1b8d11","stroke-width":1,"stroke":"#1b8d11","border-radius":8}}]
+                        }
+                    }
+                    
+                    
+                    activateSheetCalled = false;
+                    function activateSheet(_sheetName)
+                    {
+                        if (activateSheetCalled) return;
+                        activateSheetCalled = true;
+                        if (!_sheetName) _sheetName = event.target.getAttribute("id");
+                        setTimeout(function() {activateSheetCalled = false;},400 );
+                        //var currentSheetName = MagicBoard.sheetBook.currentSheet.name;
+                        if (currentSheetName === _sheetName) return;
+                        // toggle "active" class for sheet tab & accordion tab
+                        $("#"+currentSheetName+"Tab").removeClass("active");
+                        
+                        var id = _sheetName;
+                        if (!_sheetName)
+                        {
+                            var target = event.target;
+                            id = target.getAttribute("id");
+                            
+                            // if no sheet name is provided, then it is click on the sheet tab itself else accordion click
+                            $("#"+id+"Ref").click();
+                        }
+                        
+                        
+                        
+                        var options = {"name":id};
+                        var sheet = MagicBoard.sheetBook.getSheet(id);
+                        if (!sheet)
+                        {
+                            sheet = new Sheet(options);
+                            MagicBoard.sheetBook.addSheet(sheet);
+                        }
+                        
+                        MagicBoard.sheetBook.setCurrentSheet(sheet);
+                        //sheet.reDraw();
+                        sheet.refreshConnections();
+                        $("#"+id+"Tab").addClass("active");
+                        currentSheetName = id;
+                        // toggle active class for sheet tab and accordion tab
+                    }
+                    
+                    function changeTheme()
+                    {
+                        if (MagicBoard.theme.shapeColor) $("#shapeBackgroundColor").val(MagicBoard.theme.shapeColor);
+                        if (MagicBoard.theme.borderColor) $("#shapeBorderColor").val(MagicBoard.theme.borderColor);
+                        if (MagicBoard.theme.lineColor) $("#connectorLineColor").val(MagicBoard.theme.lineColor);
+                        if (MagicBoard.theme.arrowFillColor) $("#arrowFillColor").val(MagicBoard.theme.arrowFillColor);
+                        $("#stylePrompt").show();
+                    }
+                    
+                    function applyTheme()
+                    {
+                        var shapeColor = $("#shapeBackgroundColor").val();
+                        var borderColor = $("#shapeBorderColor").val();
+                        var lineColor = $("#connectorLineColor").val();
+                        var arrowFillColor = $("#arrowFillColor").val();
+                        
+                        MagicBoard.sheetBook.currentSheet.changeThemeColor(null,shapeColor,arrowFillColor,borderColor,lineColor);
+                        $("#stylePrompt").hide();
+                    }
+                    
+                    function renameSheet()
+                    {
+                        $("#sheetNamePrompt").show();
+                        $("#newSheetName").focus();
+                        $("#renameSheetButton").show();
+                        $("#newSheetButton").hide();
+                    }
+                    
+                    function renameCurrentSheet()
+                    {
+                        var name = $("#newSheetName").val();
+                        
+                        $("#sheetNamePrompt").hide();
+                        MagicBoard.sheetBook.currentSheet.rename(name);
+                        
+                        $("#"+currentSheetName+"Tab").attr("id",name+"Tab").attr("onclick","activateSheet('"+name+"');" );
+                        $("#"+currentSheetName).html(name+"<span class=\"caret\"></span>");
+                        $("#"+currentSheetName).attr("id",name);
+                        currentSheetName = name;
+                    }
+                    
+                    function promptSheetName()
+                    {
+                        $("#sheetNamePrompt").show();
+                        $("#newSheetName").focus();
+                        $("#renameSheetButton").hide();
+                        $("#newSheetButton").show();
+                    }
+                    
+                    function addNewSheet()
+                    {
+                        var name = $("#newSheetName").val();
+                        
+                        $("#sheetNamePrompt").hide();
+                        //
+                        currentSheetName = MagicBoard.sheetBook.currentSheet.name;
+                        
+                        
+                        var options = {"name":name};
+                        var sheet = MagicBoard.sheetBook.getSheet(name);
+                        if (!sheet)
+                        {
+                            sheet = new Sheet(options);
+                            MagicBoard.sheetBook.addSheet(sheet);
+                        }
+                        
+                        MagicBoard.sheetBook.setCurrentSheet(sheet);
+                        addNewSheetTab(name);
+                        currentSheetName = name;
+                        
+                    }
+                    
+                    function addNewSheetTab(_name)
+                    {
+                        var newHTML = "<li  onclick=\"activateSheet('"+_name+"')\" id=\""+_name+"Tab\" class=\"active\"><a  href=\"#\" id=\""+_name+"\" class=\"dropdown-toggle\" data-toggle=\"dropdown\">"+_name+"<span class=\"caret\"></span></a>" +
+                        "<ul class=\"dropdown-menu\">" +
+                        "<li><a href=\"#\" onclick=\"downloadSheetImage('png')\">Download PNG</a></li>"+
+                        "<li><a href=\"#\" onclick=\"downloadSheetImage('svg')\">Download SVG</a></li>"+
+                        "<li><a href=\"#\" onclick=\"changeTheme()\">Change Theme</a></li>"+
+                        "<li><a href=\"#\" onclick=\"saveSheet()\">Save</a></li>" +
+                        "<li><a href=\"#\" onclick=\"deleteSheet()\">Delete</a></li>" +
+                        "</ul> </li>" ;
+                        
+                        $("#NewTab").before(newHTML);
+                        
+                        // toggle "active" class for sheet tab & accordion tab
+                        $("#"+currentSheetName+"Tab").removeClass("active");
+                        
+                        $("#"+_name+"Tab").addClass("active");
+                    }
+                    
+                    function deleteSheet()
+                    {
+                        alert("Sheet - "+MagicBoard.sheetBook.currentSheet.name+" Deleted ");
+                    }
+                    
+                    function saveSheet()
+                    {
+                        var saved = MagicBoard.sheetBook.currentSheet.save();
+                        
+                        var a = document.createElement("a");
+                        a.setAttribute("download",MagicBoard.sheetBook.currentSheet.name+".json");
+                        a.href = "data:application/json,"+JSON.stringify(saved);
+                        a.click();
+                        alert("Sheet - "+MagicBoard.sheetBook.currentSheet.name+" saved ");
+                    }
+                    
+                    function zoom(_type)
+                    {
+                        var currentZoom = MagicBoard.sheetBook.zoomPercent;
+                        if (_type === "+") currentZoom = currentZoom + 5; // go at the increment of 5%
+                        else currentZoom = currentZoom - 5;
+                        MagicBoard.sheetBook.zoom(currentZoom);
+                    }
+                    
+                        </script>
+                    </head>
+    <body>
+        <section class="container-fluid">
+            <nav class="navbar navbar-custom" >
+                <div class="container-fluid">
+                    <div class="navbar-header">
+                        <a class="navbar-brand" href="#">Magic Board</a>
+                    </div>
+                    <div>
+                        <ul class="nav navbar-nav">
+                            <li><a href="#" class="dropdown-toggle" data-toggle="dropdown">SheetBook<span class="caret"></span>
+                                <ul class="dropdown-menu" id="sheetBookMenu">
+                                    <li><a href="#" onclick="zoom('+')">Zoom In</a></li>
+                                    <li><a href="#" onclick="zoom('-')">Zoom Out</a></li>
+                                </ul></a></li>
+                            <li><a href="#">Version 1.0.2</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+            <div class="row">
+                <section class="col-sm-2 vertBox" style="border-right:1px dotted #229922">
+                    <!-- menu starts here -->
                     <ul class="nav nav-tabs" id="sectionMenu">
                         <!--
-                        <li class="active"><a data-toggle="tab" href="#drawing">Drawing</a></li>
-                        <li><a data-toggle="tab" href="#enterprise">Assets</a></li>
-                        -->
+                         <li class="active"><a data-toggle="tab" href="#drawing">Drawing</a></li>
+                         <li><a data-toggle="tab" href="#enterprise">Assets</a></li>
+                         -->
                     </ul>
-                  <!-- menu ends -->
-                  <div class="tab-content">
-
-                  </div> <!-- tab-content -->
-              </section>
+                    <!-- menu ends -->
+                    <div class="tab-content">
+                        
+                    </div> <!-- tab-content -->
+                </section>
                 <!-- sheets go in here -->
-              <div class="col-sm-10 vertBox">
-                  <!-- tab menu for sheets -->
-                  <ul class="nav nav-tabs" id="sheetTabs">
-                      <li  onclick="activateSheet('Sheet1')" id="Sheet1Tab" class="active"><a  href="#" id="Sheet1" class="dropdown-toggle" data-toggle="dropdown">Sheet1<span class="caret"></span>
-                          <ul class="dropdown-menu" id="sheetMenu">
-                              <li><a href="#" onclick="downloadSheetImage('png')">Download PNG</a></li>
-                              <li><a href="#" onclick="downloadSheetImage('svg')">Download SVG</a></li>
-                              <li><a href="#" onclick="changeTheme()">Change Theme</a></li>
-                              <li><a href="#" onclick="renameSheet()">Rename</a></li>
-                              <li><a href="#" onclick="saveSheet()">Save</a></li>
-                              <li><a href="#" onclick="deleteSheet()">Delete</a></li>
-                          </ul></a>
-                      </li>
-                      <li  onclick="promptSheetName()" id="NewTab" ><a  href="#" id="new">New Sheet</a></li>
-                      <!--
-                      <li onclick="activateSheet()"><a href="#layer">Entity Relation</a></li>
-                      <li onclick="hilight()"><a href="#layer">BPM</a></li>
-                      <li onclick="hilight()"><a href="#layer">Wireframes</a></li>
-                      -->
-                  </ul>
-                  <!--  tab menu ends -->
-                  <section id="paper" draggable="false" ondrop="drop(event)" ondragover="allowDrop(event)" style="position:absolute;-ms-user-select:none;-webkit-user-select:none;;height:800px;width:1300px;">
-                  </section>
-              </div>
-              <!--  sheets end here --->
-          </div>
-      </section>
-
-      <!-- Line Type prompt -->
-
-      <div style="position:absolute;left:35%;top:70px;width:262px;height:auto;z-index:100;display:none;background: white;" id="lineTypePrompt">
-
-          <section class="panel panel-default"  style="width:100%;position:relative;">
-              <button type="button" class="btn btn-primary" style="margin-left:20%;margin-top:10px;margin-bottom:10px;" onclick="applyConnector();$('#lineTypePrompt').hide();" >Apply</button>
-                  <button type="button" class="btn btn-warning" style="margin-left:5%;margin-top:10px;margin-bottom:10px;" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">Cancel</button>
+                <div class="col-sm-10 vertBox">
+                    <!-- tab menu for sheets -->
+                    <ul class="nav nav-tabs" id="sheetTabs">
+                        <li  onclick="activateSheet('Sheet1')" id="Sheet1Tab" class="active"><a  href="#" id="Sheet1" class="dropdown-toggle" data-toggle="dropdown">Sheet1<span class="caret"></span>
+                            <ul class="dropdown-menu" id="sheetMenu">
+                                <li><a href="#" onclick="downloadSheetImage('png')">Download PNG</a></li>
+                                <li><a href="#" onclick="downloadSheetImage('svg')">Download SVG</a></li>
+                                <li><a href="#" onclick="changeTheme()">Change Theme</a></li>
+                                <li><a href="#" onclick="renameSheet()">Rename</a></li>
+                                <li><a href="#" onclick="saveSheet()">Save</a></li>
+                                <li><a href="#" onclick="deleteSheet()">Delete</a></li>
+                            </ul></a>
+                        </li>
+                        <li  onclick="promptSheetName()" id="NewTab" ><a  href="#" id="new">New Sheet</a></li>
+                        <!--
+                         <li onclick="activateSheet()"><a href="#layer">Entity Relation</a></li>
+                         <li onclick="hilight()"><a href="#layer">BPM</a></li>
+                         <li onclick="hilight()"><a href="#layer">Wireframes</a></li>
+                         -->
+                    </ul>
+                    <!--  tab menu ends -->
+                    <section id="paper" draggable="false" ondrop="drop(event)" ondragover="allowDrop(event)" style="position:absolute;-ms-user-select:none;-webkit-user-select:none;;height:800px;width:1300px;">
+                    </section>
+                </div>
+                <!--  sheets end here --->
+            </div>
+        </section>
+        
+        <!-- Line Type prompt -->
+        
+        <div style="position:absolute;left:35%;top:115px;width:262px;height:auto;z-index:100;display:none;background: #ffffff;" id="lineTypePrompt">
+            
+            <section class="panel panel-default"  style="width:100%;position:relative;">
+                <div class="panel-body">
+                    <div style="float:left;width:25px;font-size:8px;;margin-left:25px;" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">
+                        <div>Close</div>
+                        <img src="image/cancel_ic.png" style="width:25px;">
+                            </div>
+                    <div style="float:left;width:25px;font-size:8px;;margin-left:41px;" onclick="applyConnector();$('#lineTypePrompt').hide();" ><div>Apply</div><img src="image/apply_ic.png" width="25px"></div><div style="float:left;font-size:8px;margin-left:12px;">
+                        <div style="float:left;font-size:8px;;margin-left:25px;" onclick="deleteLine();"><div>Delete</div><img src="image/delete_ic.png" style="width:25px;"></div></div>
+                    </section>
+            
+            
+            <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+                <div class="panel-heading" style="background:rgb(27,141,17);color:#ffffff;">
+                    <h4 class="panel-title">
+                        <a data-toggle="collapse"  data-parent="#lineTypePrompt" href="#beginArrowList" class="collapsed" >Choose Begin Arrow Style</a>
+                    </h4>
+                </div>
+                <div class="panel-collapse collapse" id="beginArrowList" >
+                    <div class="panel-body">
+                        <div  id="oneFillArrowBeginDiv" class="connInactive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="filled Arrow">
+                            <div style="font-size:7px;text-align:center">Filled</div>
+                            <img src="image/oneFillArrow.png" id="oneFillArrow"  onclick="drawArrowB('oneFillArrowBegin')" class="imgIcon">
+                                </div>
+                        <div id="oneRoundBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="dot">
+                            <div style="font-size:7px;text-align:center">Round Head</div>
+                            <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowB('oneRoundBegin')" class="imgIcon">
+                                </div>
+                        <div  id="oneHollowArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
+                            <div style="font-size:7px;text-align:center">Hollow</div>
+                            <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowB('oneHollowArrowBegin')" class="imgIcon">
+                                </div>
+                        <div id="oneArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Arrow">
+                            <div style="font-size:7px;text-align:center">Arrow</div>
+                            <img src="image/oneArrow.png" id="oneArrowBegin"  onclick="drawArrowB('oneArrowBegin')" class="imgIcon">
+                                </div>
+                        <div id="diamondFilledBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
+                            <div style="font-size:7px;text-align:center">Diamond</div>
+                            <img src="image/filledDiamond.png" id="diamondFilledBegin"  onclick="drawArrowB('diamondFilledBegin')" class="imgIcon">
+                                </div>
+                        <div id="diamondHollowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
+                            <div style="font-size:7px;text-align:center">Diamond</div>
+                            <img src="image/hollowDiamond.png" id="diamondHollowBegin"  onclick="drawArrowB('diamondHollowBegin')" class="imgIcon">
+                                </div>
+                        
+                    </div>
+                </div>
             </section>
-                    <!--
-              <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
-            <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
-              <h4 class="panel-title">Connector Style</h4>
+            <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+                <div class="panel-heading" style="background:rgb(27,141,17);color:#ffffff;">
+                    <h4 class="panel-title"><a data-toggle="collapse"  data-parent="#lineTypePrompt" href="#endArrowList" class="collapsed" >Choose End Arrow Style</a>
+                    </h4>
+                </div>
+                <div class="panel-collapse collapse in" id="endArrowList">
+                    <div class="panel-body">
+                        <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Filled Arrow">
+                            <div style="font-size:7px;text-align:center">Filled</div>
+                            <img src="image/oneFillArrow.png" id="oneFillArrowEnd"  onclick="drawArrowE('oneFillArrowEnd')" class="imgIcon">
+                                </div>
+                        <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Circle">
+                            <div style="font-size:7px;text-align:center">Round Head</div>
+                            <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowE('oneRoundEnd')" class="imgIcon">
+                                </div>
+                        <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
+                            <div style="font-size:7px;text-align:center">Hollow</div>
+                            <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowE('oneHollowArrowEnd')" class="imgIcon">
+                                </div>
+                        <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Regular Arrow">
+                            <div style="font-size:7px;text-align:center">Arrow</div>
+                            <img src="image/oneArrow.png" id="oneArrowEnd"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
+                                </div>
+                        <div id="diamondFilledEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
+                            <div style="font-size:7px;text-align:center">Diamond</div>
+                            <img src="image/filledDiamond.png" id="diamondFilledEnd"  onclick="drawArrowE('diamondFilledEnd')" class="imgIcon">
+                                </div>
+                        <div id="diamondHollowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
+                            <div style="font-size:7px;text-align:center">Diamond</div>
+                            <img src="image/hollowDiamond.png" id="diamondHollowEnd"  onclick="drawArrowE('diamondHollowEnd')" class="imgIcon">
+                                </div>
+                    </div>
+                </div>
+            </section>
+            <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
+                <div class="panel-heading" style="background:rgb(27,141,17);color:#ffffff;">
+                    <h4 class="panel-title">Line Style</h4>
+                </div>
+                <div>
+                    <div class="panel-body">
+                        <div  id="solidDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Solid Line">
+                            <div style="font-size:7px;text-align:center">Solid</div>
+                            <img src="image/solid.png" id="solid"  onclick="drawLine('solid')" class="imgIcon">
+                                </div>
+                        <div  id="dottedDiv" class="connInactive"  style="margin-left:10px;width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Dotted Line">
+                            <div style="font-size:7px;text-align:center">Dotted</div>
+                            <img src="image/dotted.png" id="dotted"  onclick="drawLine('dotted')" class="imgIcon">
+                                </div>
+                        <div  id="dashedDiv" class="connInactive"  style="margin-left:10px;width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Dashed Line">
+                            <div style="font-size:7px;text-align:center">Dashed</div>
+                            <img src="image/dashed.png" id="dashed"  onclick="drawLine('dashed')" class="imgIcon">
+                                </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div style="position:absolute;left:35%;top:35%;width:300px;height:150px;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:#ffffff" id="lineTypePrompt">
+            <section class="row">
+                <div class="form-group">
+                    <label for="sheetName">Pick Connector:</label>
+                    <input type="text" class="form-control" id="sheetName">
+                        <br>
+                        <button type="button" class="btn btn-warning" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">Cancel</button>
+                        </div>
+            </section>
+        </div>
+        <!-- Line Type prompt ends -->
+        <!-- sheet prompt -->
+        <div style="position:absolute;left:35%;top:35%;width:300px;height:150px;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:#ffffff" id="sheetNamePrompt">
+            <section class="row">
+                <div class="form-group">
+                    <label for="sheetName">Sheet Name:</label>
+                    <input type="text" class="form-control" id="newSheetName">
+                        <br>
+                        <button id="renameSheetButton" type="button" class="btn btn-success" style="display:none" onclick="renameCurrentSheet()">Rename</button>
+                        <button id="newSheetButton" type="button" class="btn btn-success" style="display:none"  onclick="addNewSheet()">Add</button>
+                        <button type="button" class="btn btn-warning" onclick="$('#sheetNamePrompt').hide();">Cancel</button>
+                        </div>
+            </section>
+        </div>
+        <!-- sheet prompt ends --
+         background change -->
+        <div style="position:absolute;left:35%;top:35%;width:300px;height:auto;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:#ffffff;color:gray" id="stylePrompt">
+            
+            <div class="form-group">
+                <section class="row" style="height:40px">
+                    <section class="col-sm-8"><label for="backgroundColor">Shape Background Color:</label></section>
+                    <section class="col-sm-4"><input type="color" class="form-control" id="shapeBackgroundColor" value="#1b8d11"></section>
+                </section>
+                
+                <section class="row" style="height:40px">
+                    <section class="col-sm-8"><label for="strokeColor">Shape Border Color:</label></section>
+                    <section class="col-sm-4"><input type="color" class="form-control" id="shapeBorderColor" value="#1b8d11"></section>
+                </section>
+                
+                <section class="row" style="height:40px">
+                    <section class="col-sm-8"><label for="backgroundColor">Arrow Fille Color:</label></section>
+                    <section class="col-sm-4"><input type="color" class="form-control" id="arrowFillColor" value="#1b8d11"></section>
+                </section>
+                
+                <section class="row" style="height:40px">
+                    <section class="col-sm-8"><label for="strokeColor">Connector Line Color:</label></section>
+                    <section class="col-sm-4"><input type="color" class="form-control" id="connectorLineColor" value="#1b8d11"></section>
+                </section>
+                
+                <section class="row">
+                    <button type="button" class="btn btn-success" onclick="applyTheme()">Apply</button>
+                    <button type="button" class="btn btn-warning" onclick="$('#stylePrompt').hide();">Cancel</button>
+                </section>
             </div>
-             <div>
-                 <div class="panel-body">
-                     <div  id="directConnectDiv" style="width:50px;height:50px;float:left;" class="connActive" data-toggle="tooltip" title="" data-original-title="Direct Line">
-                         <div  style="font-size:7px;text-align:center">Direct</div>
-                         <img src="image/directConnect.png" id="directConnect"  onclick="connectShape('directConnect')" class="imgIcon">
-                     </div>
-                     <div id="horizagDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="One Bend Line">
-                         <div style="font-size:7px;text-align:center">One Bend</div>
-                         <img src="image/horizag.png" id="horizag"  onclick="connectShape('horizag')" class="imgIcon">
-                     </div>
-                     <div id="zigZagDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
-                         <div style="font-size:7px;text-align:center">Two Bend</div>
-                         <img src="image/zigZag.png" id="zigZag"  onclick="connectShape('zigZag')" class="imgIcon">
-                     </div>
-                     <div id="curvedDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Two Bend Line">
-                         <div style="font-size:7px;text-align:center">Curved</div>
-                         <img src="image/curved.png" id="curved"  onclick="connectShape('curved')" class="imgIcon">
-                     </div>
-                     
-                 </div>
-             </div>
-
-         </section>
-              -->
-
-          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
-              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
-                  <h4 class="panel-title">Begin Arrow Style</h4>
-              </div>
-              <div>
-                  <div class="panel-body">
-                      <div  id="oneFillArrowBeginDiv" class="connInactive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="filled Arrow">
-                          <div style="font-size:7px;text-align:center">Filled</div>
-                          <img src="image/oneFillArrow.png" id="oneFillArrow"  onclick="drawArrowB('oneFillArrowBegin')" class="imgIcon">
-                      </div>
-                      <div id="oneRoundBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="dot">
-                          <div style="font-size:7px;text-align:center">Round Head</div>
-                          <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowB('oneRoundBegin')" class="imgIcon">
-                      </div>
-                      <div  id="oneHollowArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
-                          <div style="font-size:7px;text-align:center">Hollow</div>
-                          <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowB('oneHollowArrowBegin')" class="imgIcon">
-                      </div>
-                      <div id="oneArrowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Arrow">
-                          <div style="font-size:7px;text-align:center">Arrow</div>
-                          <img src="image/oneArrow.png" id="oneArrowBegin"  onclick="drawArrowB('oneArrowBegin')" class="imgIcon">
-                      </div>
-                      <div id="diamondFilledBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
-                          <div style="font-size:7px;text-align:center">Diamond</div>
-                          <img src="image/oneArrow.png" id="diamondFilledBegin"  onclick="drawArrowB('diamondFilledBegin')" class="imgIcon">
-                      </div>
-                      <div id="diamondHollowBeginDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
-                          <div style="font-size:7px;text-align:center">Diamond</div>
-                          <img src="image/oneArrow.png" id="diamondHollowBegin"  onclick="drawArrowB('diamondHollowBegin')" class="imgIcon">
-                      </div>
-
-                  </div>
-              </div>
-          </section>
-          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
-              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
-                  <h4 class="panel-title">End Arrow Style</h4>
-              </div>
-              <div>
-                  <div class="panel-body">
-                      <div  id="oneFillArrowEndDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Filled Arrow">
-                          <div style="font-size:7px;text-align:center">Filled</div>
-                          <img src="image/oneFillArrow.png" id="oneFillArrowEnd"  onclick="drawArrowE('oneFillArrowEnd')" class="imgIcon">
-                              </div>
-                      <div id="oneRoundEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Circle">
-                          <div style="font-size:7px;text-align:center">Round Head</div>
-                          <img src="image/oneRound.png" id="oneRound"  onclick="drawArrowE('oneRoundEnd')" class="imgIcon">
-                              </div>
-                      <div  id="oneHollowArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Hollow Arrow">
-                          <div style="font-size:7px;text-align:center">Hollow</div>
-                          <img src="image/oneHollowArrow.png" id="oneHollowArrow"  onclick="drawArrowE('oneHollowArrowEnd')" class="imgIcon">
-                              </div>
-                      <div id="oneArrowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Regular Arrow">
-                          <div style="font-size:7px;text-align:center">Arrow</div>
-                          <img src="image/oneArrow.png" id="oneArrowEnd"  onclick="drawArrowE('oneArrowEnd')" class="imgIcon">
-                              </div>
-                      <div id="diamondFilledEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Filled">
-                          <div style="font-size:7px;text-align:center">Diamond</div>
-                          <img src="image/oneArrow.png" id="diamondFilledEnd"  onclick="drawArrowE('diamondFilledEnd')" class="imgIcon">
-                              </div>
-                      <div id="diamondHollowEndDiv" style="margin-left:10px;width:50px;height:50px;float:left;" class="connInactive" data-toggle="tooltip" title="" data-original-title="Diamond Hollow">
-                          <div style="font-size:7px;text-align:center">Diamond</div>
-                          <img src="image/oneArrow.png" id="diamondHollowEnd"  onclick="drawArrowE('diamondHollowEnd')" class="imgIcon">
-                              </div>
-                  </div>
-              </div>
-          </section>
-          <section class="panel panel-default"  style="width:100%;position:relative;margin-top: -20px;">
-              <div class="panel-heading" style="background:rgb(27,141,17);color:white;">
-                  <h4 class="panel-title">Line Style</h4>
-              </div>
-              <div>
-                  <div class="panel-body">
-                      <div  id="solidDiv" class="connActive"  style="width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Solid Line">
-                          <div style="font-size:7px;text-align:center">Solid</div>
-                          <img src="image/solid.png" id="solid"  onclick="drawLine('solid')" class="imgIcon">
-                      </div>
-                      <div  id="dottedDiv" class="connInactive"  style="margin-left:10px;width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Dotted Line">
-                          <div style="font-size:7px;text-align:center">Dotted</div>
-                          <img src="image/dotted.png" id="dotted"  onclick="drawLine('dotted')" class="imgIcon">
-                      </div>
-                      <div  id="dashedDiv" class="connInactive"  style="margin-left:10px;width:50px;height:50px;float:left;" data-toggle="tooltip" title="" data-original-title="Dashed Line">
-                          <div style="font-size:7px;text-align:center">Dashed</div>
-                          <img src="image/dashed.png" id="dashed"  onclick="drawLine('dashed')" class="imgIcon">
-                      </div>
-                  </div>
-              </div>
-          </section>
-    </div>
-      <div style="position:absolute;left:35%;top:35%;width:300px;height:150px;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white" id="lineTypePrompt">
-          <section class="row">
-              <div class="form-group">
-                  <label for="sheetName">Pick Connector:</label>
-                  <input type="text" class="form-control" id="sheetName">
-                  <br>
-                  <button type="button" class="btn btn-warning" onclick="$('#lineTypePrompt').hide();Utility.SheetBook.clearScratchCanvas();">Cancel</button>
-              </div>
-          </section>
-      </div>
-      <!-- Line Type prompt ends -->
-      <!-- sheet prompt -->
-      <div style="position:absolute;left:35%;top:35%;width:300px;height:150px;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white" id="sheetNamePrompt">
-          <section class="row">
-              <div class="form-group">
-                  <label for="sheetName">Sheet Name:</label>
-                  <input type="text" class="form-control" id="newSheetName">
-                      <br>
-                  <button type="button" class="btn btn-success" onclick="addNewSheet()">Add</button>
-                  <button type="button" class="btn btn-warning" onclick="$('#sheetNamePrompt').hide();">Cancel</button>
-              </div>
-          </section>
-      </div>
-      <!-- sheet prompt ends --
-       background change -->
-      <div style="position:absolute;left:35%;top:35%;width:300px;height:auto;border:1px solid grey;box-shadow:5px 5px gray;padding:30px;z-index:100;display:none;background:white;color:gray" id="stylePrompt">
-          
-              <div class="form-group">
-                  <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="backgroundColor">Shape Background Color:</label></section>
-                      <section class="col-sm-4"><input type="color" class="form-control" id="shapeBackgroundColor" value="#1b8d11"></section>
-                  </section>
-                  
-                  <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="strokeColor">Shape Border Color:</label></section>
-                      <section class="col-sm-4"><input type="color" class="form-control" id="shapeBorderColor" value="#1b8d11"></section>
-                  </section>
-                  
-                  <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="backgroundColor">Arrow Fille Color:</label></section>
-                      <section class="col-sm-4"><input type="color" class="form-control" id="arrowFillColor" value="#1b8d11"></section>
-                  </section>
-
-                  <section class="row" style="height:40px">
-                      <section class="col-sm-8"><label for="strokeColor">Connector Line Color:</label></section>
-                      <section class="col-sm-4"><input type="color" class="form-control" id="connectorLineColor" value="#1b8d11"></section>
-                  </section>
-
-                  <section class="row">
-                      <button type="button" class="btn btn-success" onclick="applyTheme()">Apply</button>
-                      <button type="button" class="btn btn-warning" onclick="$('#stylePrompt').hide();">Cancel</button>
-                 </section>
-            </div>
-          
-      </div>
-
-
-      <div class="panel-group" id="propertyAccordion" style="display:none;position:absolute;left: 80%;top:130px;width:16%;z-index: 100;" >
-
-      </div>
-      
-  </body>
-  <script src="js/jquery.js"></script>
-  <!-- Latest compiled and minified JavaScript -->
-  <script src="js/bootstrap.js"></script>
-
-  
-  <script>
-      /*
-      // sample
-      var r = new ShapeComponent({type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-      var c = new ShapeComponent({type:"circle",dimension:{cx:50,cy:50,r:50},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-      var o = new ShapeComponent({type:"ellipse",dimension:{cx:50,cy:50,rx:40,ry:20},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-      var p = new ShapeComponent({type:"path",dimension:{d:[{op:"m",x:0,y:40},{op:"l",x:30,y:40},{op:"m",x:10,y:40},{op:"l",x:30,y:40}]},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
-      var t = new ShapeComponent({type:"text",dimension:{width:100,height:10,x:20,cy:50},param:{"font-size":14},"innerHTML":"Object"});
-                var i = {type:"image",dimension:{width:10,height:10,cx:70,cy:50},param:{"src":"image/uml1.png"}};
-       var s =
-                                {
-                                frame:{width:100,height:100,left:130,top:140,unit:"px"},
-                                param:{alignmentRails:true,"background-color":"lightblue","border-width":1,"border-color":"black"},
-                                components:[r,c,o,t,p]
-                                }
-  */
-  
-  function getAssets()
-  {
-      var dLen = data.length;
-      for (var i = 0; i < dLen;i++)
-      {
-          var section = data[i].section;
-          if (section.title === "Assets")
-          {
-              var categories = section.categories; // it is an array
-              // read registered services and get the assets
-              /*
-               {title:"Services",id:"Service",
-                list:[
-                        {"id":"Customers","icon":"image/service.png","description":"Customers"},
-                        {"id":"Account","icon":"image/service.png","description":"Account"}
-                    ]
-               }
-               */
-          }
-      }
-  }
-  
-  function buildSideMenu()
-  {
-      var dLen = data.length;
-      var sectionMenu =  $("#sectionMenu");
-      var tabContent = $(".tab-content");
-      var lis = ""; var clsTab = "active"; var clsAccordion = "active"; var clsTV = "";var clsAV = "";
-      var tabSection = "";
-      for (var i = 0; i < dLen;i++)
-      {
-          var section = data[i].section;
-          if (clsTab) clsTV = " class='"+clsTab+"'";
-          else clsTV = "";
-          lis += "<li "+clsTV+"><a data-toggle=\"tab\" href=\"#"+section.id+"\">"+section.title+"</a></li>";
-          clsAV = " class='tab-pane fade ";
-          if (clsAccordion) clsAV = clsAV+" in "+clsAccordion+"'";
-          else clsAV = clsAV+"'";
-          tabSection += "<div "+clsAV+" id='"+section.id+"'><div class='panel-group' id='"+section.id+"Accordion' style='margin-top:10px;'>";
-          var cLen = section.categories.length;
-          for (var c = 0; c < cLen;c++)
-          {
-              var category = section.categories[c];
-              tabSection += "<section class='panel panel-default'><div class='panel-heading' style='background:rgb(27,141,17);color:white;'>";
-              // onclick="activateSheet('Layer')" <-- to be done later
-              tabSection += "<h4 class='panel-title'><a data-toggle=\"collapse\"  id='"+category.id+"Ref' data-parent='#"+section.id+"Accordion' href='#"+category.id+"List'>"+category.title+"</a></h4>";
-              tabSection += "</div><div class='panel-collapse collapse' id='"+category.id+"List'><div class='panel-body'>";
-              // build the list now
-              var lists = category.list; var lLen = lists.length;
-              for (var l = 0; l < lLen;l++)
-              {
-                  var list = lists[l];
-                  tabSection += "<div class='' id='"+list.id+"Div' style='width:50px;height:50px;float:left' data-toggle='tooltip'  title='"+list.description+"'>";
-                  tabSection += "<div style='font-size:7px;text-align:center'>"+list.description+"</div><img src='"+list.icon+"' id='"+list.id+"' draggable='true' ondragstart='drag(event)' onclick=\"addObject('"+list.id+"')\" class=\"imgIcon\">";
-                  tabSection += "</div>";
-              }
-              tabSection += "</div></div></section>";
-          }
-          tabSection +="</div></div>";
-          clsAccordion = "";
-          clsTab = ""; // only first element is active, we can remove class afterwards
-          
-      }
-      
-      tabContent.html(tabSection);
+            
+        </div>
+        
+        
+        <div class="panel-group" id="propertyAccordion" style="display:none;position:absolute;left: 80%;top:130px;width:16%;z-index: 100;" >
+            
+        </div>
+        
+    </body>
+    <script src="js/jquery.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="js/bootstrap.js"></script>
+    
+    
+    <script>
+        /*
+         // sample
+         var r = new ShapeComponent({type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
+         var c = new ShapeComponent({type:"circle",dimension:{cx:50,cy:50,r:50},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
+         var o = new ShapeComponent({type:"ellipse",dimension:{cx:50,cy:50,rx:40,ry:20},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
+         var p = new ShapeComponent({type:"path",dimension:{d:[{op:"m",x:0,y:40},{op:"l",x:30,y:40},{op:"m",x:10,y:40},{op:"l",x:30,y:40}]},param:{"fill":"none","stroke-width":1,"stroke":"black"}});
+         var t = new ShapeComponent({type:"text",dimension:{width:100,height:10,x:20,cy:50},param:{"font-size":14},"innerHTML":"Object"});
+         var i = {type:"image",dimension:{width:10,height:10,cx:70,cy:50},param:{"src":"image/uml1.png"}};
+         var s =
+         {
+         frame:{width:100,height:100,left:130,top:140,unit:"px"},
+         param:{alignmentRails:true,"background-color":"lightblue","border-width":1,"border-color":"black"},
+         components:[r,c,o,t,p]
+         }
+         */
+    
+    function getAssets()
+    {
+        var dLen = data.length;
+        for (var i = 0; i < dLen;i++)
+        {
+            var section = data[i].section;
+            if (section.title === "Assets")
+            {
+                var categories = section.categories; // it is an array
+                // read registered services and get the assets
+                /*
+                 {title:"Services",id:"Service",
+                 list:[
+                 {"id":"Customers","icon":"image/service.png","description":"Customers"},
+                 {"id":"Account","icon":"image/service.png","description":"Account"}
+                 ]
+                 }
+                 */
+            }
+        }
+    }
+    
+    function buildSideMenu()
+    {
+        var dLen = data.length;
+        var sectionMenu =  $("#sectionMenu");
+        var tabContent = $(".tab-content");
+        var lis = ""; var clsTab = "active"; var clsAccordion = "active"; var clsTV = "";var clsAV = "";
+        var tabSection = "";
+        for (var i = 0; i < dLen;i++)
+        {
+            var section = data[i].section;
+            if (clsTab) clsTV = " class='"+clsTab+"'";
+            else clsTV = "";
+            lis += "<li "+clsTV+"><a data-toggle=\"tab\" href=\"#"+section.id+"\">"+section.title+"</a></li>";
+            clsAV = " class='tab-pane fade ";
+            if (clsAccordion) clsAV = clsAV+" in "+clsAccordion+"'";
+            else clsAV = clsAV+"'";
+            tabSection += "<div "+clsAV+" id='"+section.id+"'><div class='panel-group' id='"+section.id+"Accordion' style='margin-top:10px;'>";
+            var cLen = section.categories.length;
+            var clas;
+            for (var c = 0; c < cLen;c++)
+            {
+                var category = section.categories[c];
+                if (category.id === "Basic") clas = "";
+                else clas = "class='panel-collapse collapse'";
+                tabSection += "<section class='panel panel-default'><div class='panel-heading' style='background:rgb(27,141,17);color:#ffffff;' >";
+                // onclick="activateSheet('Layer')" <-- to be done later
+                tabSection += "<h4 class='panel-title'><a data-toggle=\"collapse\"  id='"+category.id+"Ref' data-parent='#"+section.id+"Accordion' href='#"+category.id+"List'>"+category.title+"</a></h4>";
+                tabSection += "</div><div "+clas+" id='"+category.id+"List'><div class='panel-body'>";
+                // build the list now
+                var lists = category.list; var lLen = lists.length;
+                for (var l = 0; l < lLen;l++)
+                {
+                    var list = lists[l];
+                    tabSection += "<div class='' id='"+list.id+"Div' style='width:50px;height:50px;float:left' data-toggle='tooltip'  title='"+list.description+"'>";
+                    tabSection += "<div style='font-size:7px;text-align:center'>"+list.description+"</div><img src='"+list.icon+"' id='"+list.id+"' draggable='true' ondragstart='drag(event)' onclick=\"addObject('"+list.id+"')\" class=\"imgIcon\">";
+                    tabSection += "</div>";
+                }
+                tabSection += "</div></div></section>";
+            }
+            tabSection +="</div></div>";
+            clsAccordion = "";
+            clsTab = ""; // only first element is active, we can remove class afterwards
+            
+        }
+        
+        tabContent.html(tabSection);
         sectionMenu.html(lis);
         
         // initialize tool tip
         $("[data-toggle='tooltip']").tooltip();
-  }
-  
- /*
-  var u12 = "data:image/svg+xml;utf8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20id=%22Sheet1%22%20name=%22mg%22%20height=%2274%22%20width=%2245%22%20style=%22position:%20absolute;%20left:%200px;%20top:%200px;%20z-index:%201;%20visibility:%20visible;%20width:%2045px;%20height:%2074px;%22%20x=%220%22%20y=%220%22%3E%3Cg%3E%3Cellipse%20fill=%22#1b8d11%22%20stroke=%22#1b8d11%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20cx=%2229.1%22%20cy=%2222%22%20rx=%227.5%22%20ry=%227.5%22/%3E%3Cpath%20fill=%22none%22%20stroke=%22#1b8d11%22%20stroke-miterlimit=%2210%22%20stroke-width=%222%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20d=%22M%2028%2028%20L%2028%2051%20M%2028%2037%20L%2015%2037%20M%2028%2037%20L%2041%2037%20M%2028%2051%20L%2015%2070%20M%2028%2051%20L%2041%2070%20%22/%3E%3C/g%3E%3C/svg%3E";
-  */
-  
-  // JSON
-  var data =
-[
-   {"section":{title:"Drawing","id":"drawing",
-   categories:[
-               {title:"Layer Diagram",id:"Layer",
-               list:[
-                     {"id":"layers","icon":"image/layers.png","description":"Layer"},
-                     {"id":"process","icon":"image/process.png","description":"Process"}
-                     ]
-               },
-               {title:"UML Diagram",id:"Uml",
-               list:[
-                     {"id":"umlObject","icon":"image/umlObject.png","description":"Object"},
-                     {"id":"umlClass","icon":"image/umlClass.png","description":"Class"},
-                     {"id":"uml12","icon":"image/umlActor.png","description":"Actor"},
-                     {"id":"uml13","icon":"image/umlUseCase.png","description":"UseCase"},
-                     {"id":"umlFrame","icon":"image/umlFrame.png","description":"Frame"},
-                     {"id":"umlLifeLine","icon":"image/umlLifeLine.png","description":"Life Line"},
-                     {"id":"umlActivity","icon":"image/umlActivity.png","description":"Activity"},
-                     {"id":"umlPackage","icon":"image/umlPackage.png","description":"Package"},
-                     {"id":"mText","icon":"image/mText.png","description":"Text"}
-                    ]
-               },
-               {title:"Flow Chart",id:"Flow",
-               list:[
-                     {"id":"flowDataC","icon":"image/flowData.png","description":"Data"},
-                     {"id":"flowDB","icon":"image/flowDB.png","description":"Database"},
-                     {"id":"flowDecision","icon":"image/flowDecision.png","description":"Decision"},
-                     {"id":"process","icon":"image/process.png","description":"Process"},
-                     {"id":"flowDoc","icon":"image/flowDoc.png","description":"Document"},
-                     {"id":"flowManual","icon":"image/flowManual.png","description":"Manual Input"},
-                     {"id":"flowIstorage","icon":"image/flowIstorage.png","description":"Internal Storage"},
-                     {"id":"flowSeqData","icon":"image/flowSeqData.png","description":"Sequential Data"},
-                     {"id":"flowPreDef","icon":"image/flowPreDef.png","description":"Pre Defined Process"},
-                     {"id":"flowStored","icon":"image/flowStored.png","description":"Stored Data"},
-                     {"id":"flowStart","icon":"image/flowStart.png","description":"Start/End"}
-                     ]
-               },
-               {title:"Deployment Diagram",id:"Deployment",
-               list:[
-                     {"id":"laneV","icon":"image/swimLaneV.png","description":"Vertical Lane"},
-                     {"id":"ie","icon":"image/ie.png","description":"Browser"},
-                     {"id":"server","icon":"image/server.png","description":"Server"},
-                     {"id":"firewall","icon":"image/firewall.png","description":"Firewall"}
-                     ]
-               },{title:"BPM Diagram",id:"BPM",
-               list:[
-                     {"id":"startEvent","icon":"image/BPMN/start_event_ic.png","description":"Start Event"},
-                     {"id":"endEvent","icon":"image/BPMN/end_event_ic.png","description":"End Event"},
-                     {"id":"startCondEvent","icon":"image/BPMN/start_conditional_event_ic.png","description":"Conditional"},
-                     {"id":"startErrEvent","icon":"image/BPMN/start_error_event_ic.png","description":"Error"},
-                     {"id":"startTimerEvent","icon":"image/BPMN/start_timer_event_ic.png","description":"Timer"},
-                     {"id":"message","icon":"image/BPMN/Message_ic.png","description":"Message"},
-                     {"id":"parallelGateway","icon":"image/BPMN/parallel_gateway_ic.png","description":"Parallel"},
-                     {"id":"task","icon":"image/BPMN/task_ic.png","description":"task"}
-                     ,
-                     {"id":"xor","icon":"image/BPMN/data-based_exclusive(XOR)gateway_ic.png","description":"XOR"}
-                     ,
-                     {"id":"eventBasedGateway","icon":"image/BPMN/event_based_gateway_ic.png","description":"Event Based"}
-                     ,
-                     {"id":"inclusiveGateway","icon":"image/BPMN/inclusive_gateway_ic.png","description":"Inclusive"}
-                     ,
-                     {"id":"immediateCompensation","icon":"image/BPMN/intermediate_compensation_event_ic.png","description":"Compensation"}
-                     ]
-               }
-               
-            ]
-        }
-   },
-   {"section":{title:"Assets",id:"enterprise",
-   categories:[
-               {title:"Services",id:"Service",
-               list:[
-                     {"id":"Customers","icon":"image/service.png","description":"Customers"},
-                     {"id":"Account","icon":"image/service.png","description":"Account"}
-                     ]
-               },
-               {title:"Programs",id:"Program",
-               list:[
-                     {"id":"PGMLST1","icon":"image/program1.png","description":"Customer.java"},
-                     {"id":"PGMLST2","icon":"image/program2.png","description":"Account.net"}
-                     ]
-               },
-               {title:"Doc Template",id:"DocTemplate",
-               list:[
-                     {"id":"BRD","icon":"image/doc.png","description":"BRD Usecase"},
-                     {"id":"HLD","icon":"image/doc.png","description":"HLD"}
-                     ]
-               }
-               
-            ]
-        }
-   }
-]
-   
-   //
-   
-      $( document ).ready(function() {
-                          getAssets(); // this will get all registered enterprise assets
-                          buildSideMenu();
-
-                          var paper = document.getElementById("paper");
-                          var pDim = paper.getBoundingClientRect();
-                          MagicBoard.sheetBook = new SheetBook(paper,pDim.width,pDim.height);
-                          //MagicBoard.sheetBook = new SheetBook(paper,440,500);
-                          var sheet1 = new Sheet({name:defaultSheet});
-                          MagicBoard.sheetBook.addSheet(sheet1);
-                          MagicBoard.sheetBook.setCurrentSheet(sheet1);
-
-                          
-                          });
-                          
-
-      </script>
-  <!-- <script src="js/courtseyJs/jspdf.min.js"></script> -->
+    }
+    
+    /*
+     var u12 = "data:image/svg+xml;utf8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20id=%22Sheet1%22%20name=%22mg%22%20height=%2274%22%20width=%2245%22%20style=%22position:%20absolute;%20left:%200px;%20top:%200px;%20z-index:%201;%20visibility:%20visible;%20width:%2045px;%20height:%2074px;%22%20x=%220%22%20y=%220%22%3E%3Cg%3E%3Cellipse%20fill=%22#1b8d11%22%20stroke=%22#1b8d11%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20cx=%2229.1%22%20cy=%2222%22%20rx=%227.5%22%20ry=%227.5%22/%3E%3Cpath%20fill=%22none%22%20stroke=%22#1b8d11%22%20stroke-miterlimit=%2210%22%20stroke-width=%222%22%20pointer-events=%22all%22%20draggable=%22false%22%20transform=%22translate(1,1)%22%20name=%22mg%22%20d=%22M%2028%2028%20L%2028%2051%20M%2028%2037%20L%2015%2037%20M%2028%2037%20L%2041%2037%20M%2028%2051%20L%2015%2070%20M%2028%2051%20L%2041%2070%20%22/%3E%3C/g%3E%3C/svg%3E";
+     */
+    
+    // JSON
+    var data =
+    [
+     {"section":{title:"Drawing","id":"drawing",
+     categories:[
+                 {title:"Basic Shapes",id:"Basic",
+                 list:[
+                       {"id":"mText","icon":"image/text_ic.png","description":"Text"},
+                       {"id":"rectShape","icon":"image/square_ic.png","description":"Rectangle"},
+                       {"id":"circleShape","icon":"image/circle_ic.png","description":"Circle"},
+                       ]
+                 },
+                 {title:"Layer Diagram",id:"Layer",
+                 list:[
+                       {"id":"layers","icon":"image/layers.png","description":"Layer"},
+                       {"id":"process","icon":"image/process.png","description":"Process"}
+                       ]
+                 },
+                 {title:"UML Diagram",id:"Uml",
+                 list:[
+                       {"id":"umlObject","icon":"image/umlObject.png","description":"Object"},
+                       {"id":"umlClass","icon":"image/umlClass.png","description":"Class"},
+                       {"id":"uml12","icon":"image/umlActor.png","description":"Actor"},
+                       {"id":"uml13","icon":"image/umlUseCase.png","description":"UseCase"},
+                       {"id":"umlFrame","icon":"image/umlFrame.png","description":"Frame"},
+                       {"id":"umlLifeLine","icon":"image/umlLifeLine.png","description":"Life Line"},
+                       {"id":"umlActivity","icon":"image/umlActivity.png","description":"Activity"},
+                       {"id":"umlPackage","icon":"image/umlPackage.png","description":"Package"}                    ]
+                 },
+                 {title:"Flow Chart",id:"Flow",
+                 list:[
+                       {"id":"flowDataC","icon":"image/flowData.png","description":"Data"},
+                       {"id":"flowDB","icon":"image/flowDB.png","description":"Database"},
+                       {"id":"flowDecision","icon":"image/flowDecision.png","description":"Decision"},
+                       {"id":"process","icon":"image/process.png","description":"Process"},
+                       {"id":"flowDoc","icon":"image/flowDoc.png","description":"Document"},
+                       {"id":"flowManual","icon":"image/flowManual.png","description":"Manual Input"},
+                       {"id":"flowIstorage","icon":"image/flowIstorage.png","description":"Internal Storage"},
+                       {"id":"flowSeqData","icon":"image/flowSeqData.png","description":"Sequential Data"},
+                       {"id":"flowPreDef","icon":"image/flowPreDef.png","description":"Pre Defined Process"},
+                       {"id":"flowStored","icon":"image/flowStored.png","description":"Stored Data"},
+                       {"id":"flowStart","icon":"image/flowStart.png","description":"Start/End"}                     ]
+                 },
+                 {title:"Deployment Diagram",id:"Deployment",
+                 list:[
+                       {"id":"laneV","icon":"image/swimLaneV.png","description":"Vertical Lane"},
+                       {"id":"ie","icon":"image/ie.png","description":"Browser"},
+                       {"id":"server","icon":"image/server.png","description":"Server"},
+                       {"id":"firewall","icon":"image/firewall.png","description":"Firewall"}
+                       ]
+                 },{title:"BPM Diagram",id:"BPM",
+                 list:[
+                       {"id":"startEvent","icon":"image/BPMN/start_event_ic.png","description":"Start Event"},
+                       {"id":"endEvent","icon":"image/BPMN/end_event_ic.png","description":"End Event"},
+                       {"id":"startCondEvent","icon":"image/BPMN/start_conditional_event_ic.png","description":"Conditional"},
+                       {"id":"startErrEvent","icon":"image/BPMN/start_error_event_ic.png","description":"Error"},
+                       {"id":"startTimerEvent","icon":"image/BPMN/start_timer_event_ic.png","description":"Timer"},
+                       {"id":"message","icon":"image/BPMN/Message_ic.png","description":"Message"},
+                       {"id":"parallelGateway","icon":"image/BPMN/parallel_gateway_ic.png","description":"Parallel"},
+                       {"id":"task","icon":"image/BPMN/task_ic.png","description":"task"}
+                       ,
+                       {"id":"xor","icon":"image/BPMN/data-based_exclusive(XOR)gateway_ic.png","description":"XOR"}
+                       ,
+                       {"id":"eventBasedGateway","icon":"image/BPMN/event_based_gateway_ic.png","description":"Event Based"}
+                       ,
+                       {"id":"inclusiveGateway","icon":"image/BPMN/inclusive_gateway_ic.png","description":"Inclusive"}
+                       ,
+                       {"id":"immediateCompensation","icon":"image/BPMN/intermediate_compensation_event_ic.png","description":"Compensation"}
+                       ]
+                 }
+                 
+                 ]
+     }
+     },
+     {"section":{title:"Assets",id:"enterprise",
+     categories:[
+                 {title:"Services",id:"Service",
+                 list:[
+                       {"id":"Customers","icon":"image/service.png","description":"Customers"},
+                       {"id":"Account","icon":"image/service.png","description":"Account"}
+                       ]
+                 },
+                 {title:"Programs",id:"Program",
+                 list:[
+                       {"id":"PGMLST1","icon":"image/program1.png","description":"Customer.java"},
+                       {"id":"PGMLST2","icon":"image/program2.png","description":"Account.net"}
+                       ]
+                 },
+                 {title:"Doc Template",id:"DocTemplate",
+                 list:[
+                       {"id":"BRD","icon":"image/doc.png","description":"BRD Usecase"},
+                       {"id":"HLD","icon":"image/doc.png","description":"HLD"}
+                       ]
+                 }
+                 
+                 ]
+     }
+     }
+     ]
+     
+     //
+     
+     $( document ).ready(function() {
+                         getAssets(); // this will get all registered enterprise assets
+                         buildSideMenu();
+                         
+                         var paper = document.getElementById("paper");
+                         var pDim = paper.getBoundingClientRect();
+                         MagicBoard.sheetBook = new SheetBook(paper,pDim.width,pDim.height);
+                         //MagicBoard.sheetBook = new SheetBook(paper,440,500);
+                         var sheet1 = new Sheet({name:defaultSheet});
+                         MagicBoard.sheetBook.addSheet(sheet1);
+                         MagicBoard.sheetBook.setCurrentSheet(sheet1);
+                         
+                         
+                         });
+                         
+    
+        </script>
+    <!-- <script src="js/courtseyJs/jspdf.min.js"></script> -->
 </html>
 
 
