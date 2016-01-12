@@ -38,12 +38,21 @@ If you are signing this Agreement on behalf of your employer or other organizati
 6.	**Miscellaneous**. New York law governs this Agreement, excluding any applicable conflict of laws rules or principles, and the parties agree to the exclusive jurisdiction of the courts in New York, New York. This Agreement does not create a partnership, agency relationship, or joint venture between the parties. We may assign this Agreement without notice or restriction. If any provision of this Agreement is unenforceable, that provision will be modified to render it enforceable to the extent possible to effect the parties intention and the remaining provisions will not be affected. The parties may amend this Agreement only in a written amendment signed by both parties. This Agreement comprise the parties’ entire agreement relating to the subject matter of this Agreement.
 
 Agreed and accepted on my behalf and on behalf of my organization:
+
 Signature:
+
 Name:
+
 Organization (if none, type “NA”):
+
 Date Signed:
+
 Github Username:
+
 Email Address:
+
 City:
+
 Country:
+
 Telephone (optional):
