@@ -37,7 +37,7 @@ MagicBoard.properties = {
     "text-color":{"propName":"fill","propType":"attribute","label":"Text Color","field":"input","values":[{"name":"","value":"#ffffff","type":"color"}]},
     "font-size":{"propName":"font-size","propType":"attribute","label":"Font Color","field":"input",values:[{"name":"","value":"14","type":"text"}]},
     "font-weight":{"propName":"font-weight","propType":"attribute","label":"Font Weight","field":"select",values:[{"name":"Regular","value":"regular"},{"name":"Bold","value":"bold"},{"name":"Italic","value":"italic"}]},
-    "text-content":{"propName":"innerHTML","propType":"dom","label":"Text","field":"input","values":[{value:""}]},
+    "text-content":{"propName":"innerHTML","propType":"dom","label":"Text","field":"textarea","values":[{value:""}]},
     "line-type":{"propName":"","propType":"function","field":"select","label":"Line Type",values:[{"name":"Straight",value:"straight"},{"name":"Zig Zag",value:"zig-zag"},{"name":"Brezier Curve",value:"brezier"},{"name":"Quadratic Curve",value:"quadratic"}]},
     "line-color":{"propName":"stroke","propType":"attribute","label":"Line Color","field":"input","values":[{"name":"","value":MagicBoard.theme.shapeColor,"type":"color"}]},
     "line-width":{"propName":"stroke-width","propType":"attribute","label":"Line Width","field":"input","values":[{"name":"","value":"1","type":"text"}]},
@@ -92,7 +92,12 @@ var SheetBook = function(_anchorElement,_width,_height)
     document.onmouseup = function(e) {
         MagicBoard.eventStop(e);
     };
-
+    
+    /*  In mac, delete is backspace that causes chrome to go back in browser history
+    document.onkeydown = function(e) {
+        event.preventDefault();
+    };
+    */
     document.onkeyup = function(e) {
         event.preventDefault();
         MagicBoard.keyUp(e);
@@ -800,25 +805,82 @@ var DrawingObject = function()
 var Shape = function(_desc) {
 
     this.param = JSON.parse(JSON.stringify(_desc.param));
-    this.frame = JSON.parse(JSON.stringify(_desc.frame));
-    
+    this.originalFrame = JSON.parse(JSON.stringify(_desc.frame));
+    this.typeId = _desc.id;
+    this.frame = {"unit":"px"};
     if (_desc.parent)
     {
         this.param.alignmentRails = false;
         this.param.noGridBlock = true;
         this.parentShape = _desc.parent;
         var parentDim = this.parentShape.dimension;
-        _desc.frame.width = parentDim.width - 4;
-        if (_desc.frame.height > parentDim.height) _desc.frame.height = parentDim.height - 4;
+        //_desc.frame.width = parentDim.width - 4;
+        //if (_desc.frame.height > parentDim.height) _desc.frame.height = parentDim.height - 4;
         
-        this.frame.minLeft = parentDim.left;
-        this.frame.maxRight = parentDim.left + parentDim.width;
-        this.frame.minTop = parentDim.top;
-        this.frame.maxBottom = parentDim.top + parentDim.height;
+        if (parentDim.left) {
+            this.frame.minLeft = parentDim.left;
+            this.frame.maxRight = parentDim.left + parentDim.width;
+        }
+        if (parentDim.top)
+        {
+            this.frame.minTop = parentDim.top;
+            this.frame.maxBottom = parentDim.top + parentDim.height;
+        }
         
         this.parentShape.children.push(this);
     }
+    
+    // copy from originalFrame to frame
 
+    var dType = "height";var dimensionData = this.originalFrame[dType];
+    if (dimensionData )
+    {
+        if (typeof(dimensionData) === "number")
+        {
+            this.frame[dType] = this.originalFrame[dType];
+            delete this.originalFrame[dType];
+        }
+        else if (this.originalFrame[dType].indexOf("%") > -1)
+            this.frame[dType] = Utility.Shape.dataFormatter(this.originalFrame[dType],dType,this);
+    }
+    dType = "width";dimensionData = this.originalFrame[dType];
+    if (dimensionData )
+    {
+        if (typeof(dimensionData) === "number")
+        {
+            this.frame[dType] = this.originalFrame[dType];
+            delete this.originalFrame[dType];
+        }
+        else if (this.originalFrame[dType].indexOf("%") > -1)
+            this.frame[dType] = Utility.Shape.dataFormatter(this.originalFrame[dType],dType,this);
+    }
+    
+    dType = "left";dimensionData = this.originalFrame[dType];
+    if (dimensionData )
+    {
+        if (typeof(dimensionData) === "number")
+        {
+            this.frame[dType] = this.originalFrame[dType];
+            delete this.originalFrame[dType];
+        }
+        else if (this.originalFrame[dType].indexOf("%") > -1)
+            this.frame[dType] = Utility.Shape.dataFormatter(this.originalFrame[dType],dType,this);
+    }
+    
+     dType = "top";dimensionData = this.originalFrame[dType];
+    if (dimensionData )
+    {
+        if (typeof(dimensionData) === "number")
+        {
+            this.frame[dType] = this.originalFrame[dType];
+            delete this.originalFrame[dType];
+        }
+        else if (this.originalFrame[dType].indexOf("%") > -1)
+            this.frame[dType] = Utility.Shape.dataFormatter(this.originalFrame[dType],dType,this);
+    }
+    
+    if (!this.param.connectRules) this.param.connectRules = {}; // add empty connectRules
+    
     
     // define min and max left and top
     if (!this.frame.minLeft) {this.frame.minLeft = 10;
@@ -861,20 +923,29 @@ var Shape = function(_desc) {
         }
     }
     this.init();
+    if (_desc.childrenParms)
+    {
+        for (var s = 0, sLen = _desc.childrenParms.length;s < sLen ;s++)
+        {
+            var details = _desc.childrenParms[s];
+            details.parent = this;
+            var shape = new Shape(details);
+            //shape.setPosition({x:shape.dimension.left,y:shape.dimension.top});// this is needed for middle point calculations and alignments
+        }
+    }
+
 
 }
+
 
 inheritsFrom(Shape,DrawingObject);
 
 Shape.prototype.init = function()
 {
-
-    if (!this.children) this.children = [];
-    if (!this.components) this.components = [];
-
     if (this.param.alignmentRails == undefined) { this.param.alignmentRails = true;}
     this.occupiedGrids = [];
-
+    if (!this.children) this.children = [];
+    if (!this.components) this.components = [];
 
     this.currentSheet = MagicBoard.sheetBook.getCurrentSheet();
     this.sheetCanvas = this.currentSheet.getCanvas();
@@ -889,6 +960,7 @@ Shape.prototype.init = function()
     this.currentSheet.addShape(this);
     this.connectedTo = [];
     this.connectedFrom = [];
+    this.drawn = false;
 }
 
 /**
@@ -927,11 +999,11 @@ Shape.prototype.createCanvas = function()
     var domParent = document.createElementNS("http://www.w3.org/2000/svg", "g");
     this.dom  = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.dom.setAttribute("name","mg");
-    this.dom.setAttribute("draggable","false");
+    //this.dom.setAttribute("draggable","false");
     this.dom.setAttribute("width",width);
     this.dom.setAttribute("height",height);
     this.dom.setAttribute("pointer-events","all");
-    this.dom.setAttribute("style","position:absolute;-ms-user-select:none;-webkit-user-select:none;z-index:10;transform:translate(1.5,1.5);z-index:1");
+    this.dom.setAttribute("style","position:absolute;-ms-user-select:none;-webkit-user-select:none;z-index:10;z-index:1");
     this.dom.setAttribute("x", Utility.Shape.dataFormatter(this.frame.left,"left",this)) ;
     this.dom.setAttribute("y",Utility.Shape.dataFormatter(this.frame.top,"top",this));
     domParent.appendChild(this.dom);
@@ -1017,6 +1089,7 @@ Shape.prototype.doubleClick = function()
     var target = event.target;
     if (target instanceof SVGTextElement)
     {
+        /* temporarily disabled
         var dim = target.getBoundingClientRect();
         var editor = MagicBoard.sheetBook.textEditor;
         editor.style.left = dim.left - 2;editor.style.top = dim.top - 2;
@@ -1025,6 +1098,7 @@ Shape.prototype.doubleClick = function()
         editor.innerHTML = target.innerHTML;
         editor.targetShape = targetShape;
         editor.focus();
+        */
         // updates are reflected in a blur function that was created in Utility.SheetBook.createWorkItems
     }
 
@@ -1171,6 +1245,43 @@ Shape.prototype.resizeStop = function()
     MagicBoard.indicators.resize = -1;
     MagicBoard.indicators.resizeStarted = null;
     this.selectToggle();
+    
+    // see if parent needs to be readjusted
+    var diff = {}; var changed = false;
+    for (var k in this.originalFrame)
+    {
+        if (k === "height" || k === "width")
+        {
+            var dimVal = Utility.Shape.dataFormatter(this.originalFrame[k],k,this);
+            if (dimVal === this.frame[k]) continue; //
+            changed = true;
+            // need to change its parent,siblings and its children
+            diff[k] = this.frame[k] - dimVal;
+            this.frame[k] = dimVal; // reset it so we can refix it along with others
+        }
+        
+    }
+    
+    
+    if (changed)
+    {
+        var sh = this; var hasParent = false;
+            while (sh.parentShape)
+            {
+                hasParent = true;
+                var s =this.parentShape;
+                if (s) sh = s;
+            }
+
+        if ( hasParent || sh.children.length > 0)
+        {
+            Utility.Shape.adjustComponents(sh,diff);
+        }
+            
+    } else if (this.children.length > 0)
+    {
+        Utility.Shape.adjustComponents(this,{}); // this is recalculate any child attributes
+    }
 }
 
 /**
@@ -1445,6 +1556,7 @@ Shape.prototype.setPosition = function(pos,align)
     }
     // make sure Pos is within the boundary
     
+    
     if (pos.x < this.frame.minLeft) pos.x = this.frame.minLeft;
     if (pos.y < this.frame.minTop) pos.y = this.frame.minTop;
     if (this.frame.maxRight < (pos.x + dim.width)) pos.x = this.frame.maxRight - dim.width - 5;
@@ -1464,7 +1576,8 @@ Shape.prototype.setPosition = function(pos,align)
     dim.top = pos.y;
 
     Utility.Shape.definePeriferalPoints(dim);
-    
+
+    Utility.Shape.placement(this);
 
     this.refreshConnection();
     if (this.param.alignmentRails)
@@ -1476,8 +1589,27 @@ Shape.prototype.setPosition = function(pos,align)
     for (var c =0, cLen=this.children.length;c < cLen;c++)
     {
         var child = this.children[c];
-        child.setPosition(pos);
+        var childDim = child.frame;
+        var childOrigDim = child.originalFrame;
+        var childPos = {x:pos.x,y:pos.y};
+        if (pos.diffX)
+        {
+            childPos.diffX = pos.diffX;
+            childPos.diffY = pos.diffY;
+            
+        }
+        if (childOrigDim.left) {
+            var val = Utility.Shape.dataFormatter(childOrigDim.left,"left",child);
+            childPos.x = val;
+        }
+        if (childOrigDim.top) {
+            var val = Utility.Shape.dataFormatter(childOrigDim.top,"top",child);
+            childPos.y = val;
+        }
+        child.setPosition(childPos);
     }
+    
+    if (!this.drawn) this.draw();
 }
 /**
  * This Function is used to setDimension of the shape
@@ -1804,6 +1936,8 @@ Shape.prototype.draw = function() {
         }
     else
         this.addHover();
+    
+    this.drawn = true;
 }
 
 /**
@@ -2188,7 +2322,7 @@ var ShapeComponent = function(_desc) {
     if (this.innerHTML) this.dom.appendChild(document.createTextNode(this.innerHTML)) ;
     this.dom.setAttribute("pointer-events","all");
     this.dom.setAttribute("draggable","false");
-    this.dom.setAttribute("transform","translate(1,1)");
+    //this.dom.setAttribute("transform","translate(1,1)");
     this.dom.setAttribute("name","mg");
     this.derivedDimension = {};
 
@@ -2246,6 +2380,27 @@ ShapeComponent.prototype.construct = function()
         
         this.dom.setAttributeNS("http://www.w3.org/1999/xlink","href",href);
     }
+    
+    if (this.derivedParam)
+    {
+        // will work on it later
+        // get transform.
+        if (this.derivedParam["transform"])
+        {
+            var transform = this.derivedParam["transform"].trim();
+            var dArray = transform.split(" ");
+            for (var d = dArray.length - 1; d > -1;d--)
+            {
+                var prm = dArray[d];
+                if (prm.indexOf("translate") > -1)
+                {
+                    var p1 = prm.indexOf("(")+1; var p2 = prm.indexOf(")");
+                    var val = prm.substring(p1,p2);
+                    //console.log(val);
+                }
+            }
+        }
+    }
 
     return dom;
 }
@@ -2284,8 +2439,17 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
         margin = parseInt(this.param["stroke-width"]);
     }
 
-    pw = this.parentShape.frame.width -2*margin;
-    ph = this.parentShape.frame.height -2*margin;
+    var pw = this.parentShape.frame.width -2*margin;
+    var ph = this.parentShape.frame.height -2*margin;
+    
+    if (this.mapping)
+    {
+        pw = this.parentShape.frame[this.mapping.x.parm];
+        ph = this.parentShape.frame[this.mapping.y.parm];
+        
+        if (this.mapping.x.multiplier) pw = pw*this.mapping.x.multiplier;
+        if (this.mapping.y.multiplier) ph = ph*this.mapping.y.multiplier;
+    }
 
     for (var k in this.dimension)
     {
@@ -2320,6 +2484,7 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
                 val = (percentVal * ph / 100) - margin;
                 break;
             case "d":
+            case "points":
                 // put path logic here
                 if (!this.lines) this.lines = [];
                 var dArray = percentVal;var dLen = dArray.length;
@@ -2491,9 +2656,24 @@ ShapeComponent.prototype.applyProperty = function(_name,_type,_value,_label,_gro
         }
     } else if (_type === "dom")
     {
+        var valArray = _value.split("\n");
         this.innerHTML = _value;
         this.dom.innerHTML = "";
-        this.dom.appendChild(document.createTextNode(_value));
+        //this.dom.appendChild(document.createTextNode(_value));
+        var str = "";
+        // find x, and font-size
+        var dy = "dy =''";
+        var x = this.derivedDimension["x"];
+        for (var i =0, iLen = valArray.length;i < iLen;i++)
+        {
+            var val = valArray[i];
+            if (val)
+            {
+                str += "<tspan name='mg' "+dy+">"+val+"</tspan>";
+            }
+            dy = " dy = '"+this.param["font-size"]+"px' ";
+        }
+        this.dom.innerHTML = str;
     }
 }
 
@@ -3028,12 +3208,14 @@ MagicBoard.eventStop = function(e)
             // it could be single click
             mLen--;
             var endShape = MagicBoard.indicators.mouseover[mLen];
+            
             while (endShape.parentShape)
             {
                 var sh  = MagicBoard.indicators.mouseover[mLen--];
                 if (sh) endShape = sh;
                 else break;
             }
+        
             var beginShape = MagicBoard.indicators.lineActive;
 
             //console.log("stop b-"+beginShape.id);
@@ -3105,7 +3287,11 @@ MagicBoard.keyUp = function(e)
 
     switch (keycode)
     {
-       // case 8: // backspace
+       // case 8: // backspace // in mac delete button has backspace keycode that causes the browser to go back in history url not decided how to solve it yet.
+        //case 13:
+            // this is enter key
+          //  return false;
+          //  break;
         case 46: // delete
             // delete selected object
             if (MagicBoard.indicators.hilight)
@@ -3389,7 +3575,7 @@ Utility.SheetBook.createSheet = function(_name,_svg)
     
 
     var components = [];
-    var shapeJson = Utility.createShapeJson1(svgElement[0],obj.shapes,components,0); // svg.children = garbage.children.children
+    var shapeJson = Aux.createShapeJson1(svgElement[0],obj.shapes,components,0); // svg.children = garbage.children.children
     obj.shapes.push(shapeJson);
     var sheet1 = new Sheet(obj);
     MagicBoard.sheetBook.addSheet(sheet1);
@@ -3398,261 +3584,8 @@ Utility.SheetBook.createSheet = function(_name,_svg)
     garbage.innerHTML = ""; // clear gargabe
     return sheet1;
 }
-Utility.supportedNodes = {"g":true,"rect":true,"circle":true,"ellipse":true,"path":true,"text":true};
-Utility.createShapeJson1 = function(parent,shapeArray,components,level)
-{
-   
-        for (var c = 0, cLen = parent.children.length; c < cLen ; c++)
-        {
-            var child = parent.children[c];
-            var nodeName = child.nodeName;
-            if (!Utility.supportedNodes[nodeName]) continue;
-            if (nodeName === "g") {
-                if (components.length > 0)
-                {
-                    var shapeJson = Utility.createShapeJson2(components);
-                    shapeArray.push(shapeJson);
-                }
-                // handle any transform here (translate could be multi-level)
-                components = [];
-                Utility.temp = {minX:99999,maxX:0,minY:99999,maxY:0};
-                Utility.createShapeJson1(child,shapeArray,components,(level+1));//getShapes(child,shapeArray);
-            }
-            else
-            {
-                var component = {type:null,origDim:{},dimension:{},param:{},lines:[]}; //{type:"rect",dimension:{width:100,height:100,x:0,y:0},param:{"fill":"none","stroke-width":1,"stroke":"black","border-radius":8}};
-                component.type = nodeName;
-                
-                for (var att, i = 0, atts = child.attributes, n = atts.length; i < n; i++){
-                    att = atts[i];
-                    switch (att.nodeName)
-                    {
-                        case "x": {var x = parseInt(att.nodeValue);component.origDim["x"] = x ;if (x < Utility.temp.minX) Utility.temp.minX = x ; if (x > Utility.temp.maxX) Utility.temp.maxX = x;break;}
-                        case "y": {var y = parseInt(att.nodeValue);component.origDim["y"] = y ;if (y < Utility.temp.minY) Utility.temp.minY = y ; if (y > Utility.temp.maxY) Utility.temp.maxY = y;break;}
-                        case "r": component.origDim["r"] = parseInt(att.nodeValue);break;
-                        case "cx": component.origDim["cx"] = parseInt(att.nodeValue);break;
-                        case "cy": component.origDim["cy"] = parseInt(att.nodeValue);break;
-                        case "rx": component.origDim["rx"] = parseFloat(att.nodeValue);break;
-                        case "ry": component.origDim["ry"] = parseFloat(att.nodeValue);break;
-                        case "width": component.origDim["width"] = parseInt(att.nodeValue);break;
-                        case "height": component.origDim["height"] = parseInt(att.nodeValue);break;
-                        case "d": {
-                            component.lines = Utility.parseD(att.nodeValue);
-                            break;
-                        }
-                        default: component.param[att.nodeName] = att.nodeValue;break;
-                    }
-                    
-                }
-                //
-                
-                var dimension = component.origDim;
-                if (component.type === "ellipse")
-                {
-                    var x = dimension.cx - dimension.rx; x = parseInt(x.toFixed(0));
-                    var y = dimension.cy - dimension.ry; y = parseInt(y.toFixed(0));
-                    var x1 = dimension.cx + dimension.rx;
-                    var y1 = dimension.cy + dimension.ry;
-                    if (x < Utility.temp.minX) {Utility.temp.minX = x ;} if (x > Utility.temp.maxX) Utility.temp.maxX = x;
-                    if (y < Utility.temp.minY) {Utility.temp.minY = y ;} if (y > Utility.temp.maxY) Utility.temp.maxY = y;
-                    if (x1 < Utility.temp.minX) Utility.temp.minX = x1 ; if (x1 > Utility.temp.maxX) Utility.temp.maxX = x1;
-                    if (y1 < Utility.temp.minY) Utility.temp.minY = y1 ; if (y1 > Utility.temp.maxY) Utility.temp.maxY = y1;
-                } else if (component.type === "circle")
-                {
-                    var x = dimension.cx - dimension.r;x = parseInt(x.toFixed(0));
-                    var y = dimension.cy - dimension.r;y = parseInt(y.toFixed(0));
-                    var x1 = dimension.cx + dimension.r;
-                    var y1 = dimension.cy + dimension.r;
-                    if (x < Utility.temp.minX) {Utility.temp.minX = x ;} if (x > Utility.temp.maxX) Utility.temp.maxX = x;
-                    if (y < Utility.temp.minY) {Utility.temp.minY = y ;} if (y > Utility.temp.maxY) Utility.temp.maxY = y;
-                    if (x1 < Utility.temp.minX) Utility.temp.minX = x1 ; if (x1 > Utility.temp.maxX) Utility.temp.maxX = x1;
-                    if (y1 < Utility.temp.minY) Utility.temp.minY = y1 ; if (y1 > Utility.temp.maxY) Utility.temp.maxY = y1;
-                } else if (component.type === "rect")
-                {
-                    var x = dimension.x;
-                    var y = dimension.y;
-                    var x1 = dimension.x + dimension.width;
-                    var y1 = dimension.y + dimension.height;
-                    if (x < Utility.temp.minX) {Utility.temp.minX = x ;} if (x > Utility.temp.maxX) Utility.temp.maxX = x;
-                    if (y < Utility.temp.minY) {Utility.temp.minY = y ;} if (y > Utility.temp.maxY) Utility.temp.maxY = y;
-                    if (x1 < Utility.temp.minX) Utility.temp.minX = x1 ; if (x1 > Utility.temp.maxX) Utility.temp.maxX = x1;
-                    if (y1 < Utility.temp.minY) Utility.temp.minY = y1 ; if (y1 > Utility.temp.maxY) Utility.temp.maxY = y1;
-                } else if (component.type === "text")
-                {
-                    component.innerHTML = child.textContent;
-                }
-                //
-                components.push(component);
-                
-            }
-        }
-    
-    if (level === 0)
-    {
-        if (components.length > 0)
-        {
-            var shapeJson = Utility.createShapeJson2(components);
-            return shapeJson;
-        }
-    }
-}
 
-Utility.createShapeJson2 = function(_components)
-{
-    var swidth = Utility.temp.maxX - Utility.temp.minX; var sheight = Utility.temp.maxY - Utility.temp.minY;
-    
-    var sh =  {
-    frame:{width:swidth,height:sheight,unit:"px",left:Utility.temp.minX,top:Utility.temp.minY},
-    param:{alignmentRails:true},
-    componentParms:[]
-    }
-    
-    for (var c = 0,cLen = _components.length; c < cLen;c++)
-    {
-        var _component = _components[c];
-        var _dimension = _component.origDim;
-        var perDim = _component.dimension;
-        for (var k in _dimension)
-        {
-            switch (k)
-            {
-                case "x": _dimension.x = _dimension.x - Utility.temp.minX; perDim.x = _dimension.x*100/swidth; break;
-                case "y": _dimension.y = _dimension.y - Utility.temp.minY; perDim.y = _dimension.y*100/sheight;break;
-                case "cx": _dimension.cx = _dimension.cx - Utility.temp.minX;perDim.cx = _dimension.cx*100/swidth; break;
-                case "cy": _dimension.cy = _dimension.cy - Utility.temp.minY; perDim.cy = _dimension.cy*100/sheight;break;
-                case "r": perDim.r = _dimension.r*100/swidth; break;
-                case "rx":  perDim.rx = _dimension.rx*100/swidth; break;
-                case "ry":  perDim.ry = _dimension.ry*100/sheight;break;
-                case "width": perDim.width = _dimension.width*100/swidth; break;
-                case "height":  perDim.height = _dimension.height*100/sheight;break;
-            }
-        }
-        
-        var _lines = _component.lines;lLen = _lines.length;
-        if (lLen) perDim.d = [];
-        for (var l = 0;l < lLen;l++)
-        {
-            var line = _lines[l];
-            var perLine = {op:line.op};
-            perDim.d.push(perLine);
-            
-            if (line.op === "Z") continue;
-            for (k in line)
-            {
-                if (k.indexOf("x") > -1)
-                {
-                    line[k] = line[k] - Utility.temp.minX;
-                    perLine[k] = line[k]*100/swidth;
-                } else if (k.indexOf("y") > -1)
-                {
-                    line[k] = line[k] - Utility.temp.minY;
-                    perLine[k] = line[k]*100/sheight;
-                }
-            }
-        }
-        sh.componentParms.push(_component);
-    }
-    
-    return sh;
-}
 
-/**
- * This is an internal function only
- * @static
- */
-Utility.parseD = function(_dString)
-{
-    var seq = [];var seqPrev = [];
-    var dArray = _dString.split(" ");
-    var line=null; var lines = [];
-    for (var d = 0,dLen = dArray.length;d< dLen;d++)
-    {
-        var data = dArray[d];var op = data.substring(0,1); var coord = false;
-        if (!data) continue;
-        var opU = op.toUpperCase();
-        switch (opU)
-        {
-            case "A":
-                //rx ry x-axis-rotation large-arc-flag sweep-flag x y
-                seq = ["rx", "ry", "a1", "lf", "sf","x", "y"];
-                seqPrev = ["rx", "ry", "a1", "lf", "sf","x", "y"];
-                break;
-            case "C":
-                seq = ["x1", "y1", "x2", "y2", "x", "y"];
-                seqPrev = ["x1", "y1", "x2", "y2", "x", "y"];
-                break;
-            case "H":
-                seq = ["x"];
-                seqPrev = ["x"];
-                break;
-            case "M":
-                seq = ["x","y"];
-                seqPrev = ["x","y"];
-                break;
-            case "L":
-                seq = ["x","y"];
-                seqPrev = ["x","y"];
-                break;
-            case "Q":
-                seq = ["x1", "y1","x","y"];
-                seqPrev = ["x1", "y1","x","y"];
-                break;
-            case "S":
-                seq = ["x2", "y2", "x", "y"];
-                seqPrev = ["x2", "y2", "x", "y"];
-                break;
-            case "T":
-                seq = ["x","y"];
-                seqPrev = ["x","y"];
-                break;
-            case "V":
-                seq = ["y"];
-                seqPrev = ["y"];
-                break;
-            case "Z":
-                seq =[];
-                seqPrev =[];
-                break;
-                
-            default:
-                coord = true;
-                data = parseInt(data);
-                break;
-        }
-        
-        if (!coord) {
-            line = {"op":op};
-            lines.push(line);
-            if (data.length > 1) {data = parseInt(data.substring(1));coord = true;}
-        }
-        
-        if (coord)
-        {
-            if (seq.length === 0)
-            {
-                var sLen = seqPrev.length;
-                for (var s=0;s< sLen;s++)
-                {
-                    seq[s] = seqPrev[s];
-                }
-            }
-            var key = seq[0];
-            line[key] = data;
-            seq.splice(0,1);
-            if (key === "x" || key === "x1" || key === "x2")
-            {
-                if (data < Utility.temp.minX) Utility.temp.minX = data;
-                if (data > Utility.temp.maxX) Utility.temp.maxX = data;
-            } else if (key == "y" || key == "y1" || key == "y2")
-            {
-                if (data < Utility.temp.minY) Utility.temp.minY = data;
-                if (data > Utility.temp.maxY) Utility.temp.maxY = data;
-            }
-        }
-        
-    }
-    return lines;
-}
 /**
  *  This Utility function is for internal use
  *  @static
@@ -3660,7 +3593,8 @@ Utility.parseD = function(_dString)
  */
 Utility.Sheet.Markers = function(_sheet)
 {
-    var defString =  "<defs>"
+    var defString =  "<defs></defs>"
+    /*
         +"<marker id='fillArrowE' markerWidth='10' markerHeight='10' refx='8' refy='3' orient='auto' markerUnits='strokeWidth' ><path d='M0,0 L0,6 L9,3 Z' fill='rgb(27,141,17)'></path></marker>"
         +"<marker id='fillArrowS' markerWidth='10' markerHeight='10' refx='0' refy='3' orient='auto' markerUnits='strokeWidth' ><path d='M0,3 L9,0 L9,6 Z' fill='rgb(27,141,17)'></path></marker>"
         +"<marker id='hollowArrowE' markerWidth='10' markerHeight='10' refx='8' refy='3' orient='auto' markerUnits='strokeWidth' ><path d='M0,0 L0,6 L9,3 Z' fill='white' stroke='rgb(27,141,17)' stroke-width='1'></path></marker>"
@@ -3671,6 +3605,7 @@ Utility.Sheet.Markers = function(_sheet)
         +"<marker id='lineArrowE' markerWidth='10' markerHeight='10' refx='8' refy='3' orient='auto' markerUnits='strokeWidth' ><path d='M0,0 L9,3 L0,6' fill='none' stroke='rgb(27,141,17)' stroke-width='1'></path></marker>"
         +"<marker id='lineArrowS' markerWidth='10' markerHeight='10' refx='0' refy='3' orient='auto' markerUnits='strokeWidth' ><path d='M9,0 L0,3 L9,6' fill='none' stroke='rgb(27,141,17)' stroke-width='1'></path></marker>"
         +"</defs>";
+    */
 
     /*
      +"<marker id='startArrow1' markerWidth='10' markerHeight='10' refx='0' refy='3' orient='auto' markerUnits='strokeWidth' >"
@@ -3910,7 +3845,49 @@ Utility.Shape.definePeriferalPoints = function(_dim)
         "m41":{"x":_dim.left,"y":_dim.cy}
     };
     
-    _dim.edgePoints = edgePoints;
+    if (_dim.edgePoints)
+    { // this is done so custom edge points are not destroyed
+        var eg = _dim.edgePoints;
+        eg.c1 = edgePoints.c1;eg.c2 = edgePoints.c2;eg.c3 = edgePoints.c3;eg.c4 = edgePoints.c4;
+        eg.m12 = edgePoints.m12;eg.m23 = edgePoints.m23;eg.m34 = edgePoints.m34;eg.m41 = edgePoints.m41;
+    } else _dim.edgePoints = edgePoints;
+}
+
+Utility.Shape.adjustComponents = function(_shape,_diff)
+{
+    var originalFrame = _shape.originalFrame;
+    
+    var dim = _shape.frame;
+    var hasParent = false;
+    if (_shape.parentShape) hasParent = true;
+
+    for (var k in _diff)
+        {
+            var dimVal = dim[k];
+            if (hasParent) dimVal = Utility.Shape.dataFormatter(originalFrame[k],k,_shape);
+            dim[k] = dimVal + _diff[k];
+            _shape.dom.setAttribute(k,dim[k]);
+        }
+    _shape.drawn = false;
+    for (var c =0, cLen=_shape.children.length;c < cLen;c++)
+    {
+        var child = _shape.children[c];
+        child.drawn = false;
+        for (var k in child.originalFrame)
+        {
+            if (k === "height" || k === "width")
+            {
+                var dimVal = Utility.Shape.dataFormatter(child.originalFrame[k],k,child);
+                if (dimVal === child.frame[k]) continue; //
+                
+                child.frame[k] = dimVal; // reset it so we can refix it along with others
+                child.dom.setAttribute(k,dimVal);
+            }
+            
+        }
+    }
+    _shape.setPosition({x:dim.left,y:dim.top});
+    
 }
 
 /**
@@ -4087,6 +4064,153 @@ Utility.Shape.showProperty = function()
     }
 }
 
+/*
+ make sure you have the right order of the placement rules
+ 1.cx,cy
+ 2.left,top
+ 3.right,bottom
+ 
+ right and bottom must be the last rule in the sequence
+ */
+
+Utility.Shape.placement = function(_shape)
+{
+    var changes = false;
+    var dim = _shape.frame;
+    var origDim = JSON.parse(JSON.stringify(dim));
+    var placementRules = _shape.param.placementRules;
+    if (placementRules)
+    {
+        for (var p = 0, pLen = placementRules.length;p < pLen;p++)
+        {
+            var rule = placementRules[p];
+            var restrictDim;
+            if (rule.ref === "parent")
+            {
+                if (!_shape.parentShape) break;
+                restrictDim = _shape.parentShape.dimension[rule.refDimension];
+            } else if (rule.ref === "sibling")
+            {
+                // find previous sibling
+                var children = _shape.parentShape.children;
+                for (var c = 0, cLen = children.length;c < cLen;c++)
+                {
+                    var child = children[c];
+                    if (child === _shape) break;
+                    restrictDim = child.frame[rule.refDimension]; // previous sibling's dimension
+                }
+            }
+            switch (rule.cond)
+            {
+                    case "=":
+                        origDim[rule.dimension] = _shape.dimension[rule.dimension];
+                        _shape.dimension[rule.dimension] = restrictDim;
+                        switch (rule.dimension)
+                        {
+                            case "cx":
+                                dim.left = dim.cx - (dim.width)/2;
+                                dim.right = dim.left + dim.width;
+                                break;
+                            case "cy":
+                                dim.top = dim.cy - (dim.height)/2;
+                                dim.bottom = dom.top + dim.height;
+                                break;
+                            case "left":
+                                 dim.right = dim.left + dim.width;
+                               break;
+                            case "top":
+                                 dim.bottom = dim.top + dim.height;
+                        }
+                    
+                    changes = true;
+                    break;
+                    case "<":
+                    if (_shape.dimension[rule.dimension] > restrictDim)
+                    {
+                        origDim[rule.dimension] = _shape.dimension[rule.dimension];
+                        _shape.dimension[rule.dimension] = restrictDim;
+                        switch (rule.dimension)
+                        {
+                            case "cx":
+                                dim.left = dim.cx - (dim.width)/2;
+                                dim.right = dim.left + dim.width;
+                                break;
+                            case "cy":
+                                dim.top = dim.cy - (dim.height)/2;
+                                dim.bottom = dom.top + dim.height;
+                                break;
+                            case "left":
+                                dim.right = dim.left + dim.width;
+                                break;
+                            case "top":
+                                dim.bottom = dim.top + dim.height;
+                        }
+                        changes = true;
+                    }
+                    break;
+                case ">":
+                    if (_shape.dimension[rule.dimension] < restrictDim)
+                    {
+                        origDim[rule.dimension] = _shape.dimension[rule.dimension];
+                        _shape.dimension[rule.dimension] = restrictDim;
+                        switch (rule.dimension)
+                        {
+                            case "cx":
+                                dim.left = dim.cx - (dim.width)/2;
+                                dim.right = dim.left + dim.width;
+                                break;
+                            case "cy":
+                                dim.top = dim.cy - (dim.height)/2;
+                                dim.bottom = dom.top + dim.height;
+                                break;
+                            case "left":
+                                dim.right = dim.left + dim.width;
+                                break;
+                            case "top":
+                                dim.bottom = dim.top + dim.height;
+                        }
+                        changes = true;
+                    }
+                    break;
+            }
+        }
+    }
+    
+    
+    if (changes)
+    {
+        dim.width = dim.right - dim.left;
+        dim.height =  dim.bottom  - dim.top;
+        
+        Utility.Shape.definePeriferalPoints(dim);
+        
+        for (var k in origDim)
+        {
+            if (origDim[k] === dim[k]) continue;
+            
+            switch (k)
+            {
+                case "cx":
+                case "left":
+                     _shape.dom.setAttribute("x",dim.left );
+                    break;
+                case "cy":
+                case "top":
+                    _shape.dom.setAttribute("y",dim.top );
+                    break;
+                case "right":
+                case "width":
+                    _shape.dom.setAttribute("width",dim.width );
+                    break;
+                case "bottom":
+                case "hight":
+                    _shape.dom.setAttribute("height",dim.width );
+                    break;
+            }
+        }
+    }
+}
+
 /**
  * this function is for internal use to show nearest aligned horizontal and vertical lines
  * sample structure for internal use only
@@ -4133,8 +4257,16 @@ Utility.Shape.connectTo = function(_beginShape,_endShape,_connProp)
 {
     var ev = _beginShape.events;
     
-    if (_beginShape.parentShape) _beginShape = _beginShape.parentShape;
-    if (_endShape.parentShape) _endShape = _endShape.parentShape;
+    while (_beginShape.parentShape) {
+        
+        var sh = _beginShape.parentShape;
+        if (sh) { if (!sh.param.connectRules.noConnection) _beginShape = sh; else break;}
+    }
+    while (_endShape.parentShape) {
+        
+        var sh = _endShape.parentShape;
+        if (sh) { if (!sh.param.connectRules.noConnection) _endShape = sh; else break;}
+    }
     var endShapes = _beginShape.connectedTo;
     var found = false;
     var eLen = endShapes.length;
@@ -4367,6 +4499,58 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
         var pos = {};var p1,p2;
         //
         p1 = turningPoints[tLen - 1]; p2 = turningPoints[tLen - 2];
+        
+        var angle = Math.abs(Math.atan( (p1.y - p2.y)/(p1.x - p2.x)  )*180/Math.PI);
+        angle = Math.round(angle/45) * 45; // round it to 45 degrees
+        
+        if (angle === 0)
+        {
+            if (p2.x > p1.x)
+            {
+                 pos.pointEnd = {"label":"m23","x":pos.x2,"y":pos.y2};
+                 pos.x2 = eEdge.m23.x;
+                if (_endShape.param.connectRules.connectInPlace) { pos.y2 = p1.y;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointEnd.label = label;
+                    endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};
+                }
+                else pos.y2 = eEdge.m23.y;
+                
+            } else
+            {
+                pos.pointEnd = {"label":"m41","x":pos.x2,"y":pos.y2};
+                pos.x2 = eEdge.m41.x;
+                if (_endShape.param.connectRules.connectInPlace) { pos.y2 = p1.y;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointEnd.label = label;
+                    endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};}
+                else pos.y2 = eEdge.m41.y;
+
+            }
+        } else
+        {
+            if (p2.y > p1.y)
+            {
+                pos.pointEnd = {"label":"m34","x":pos.x2,"y":pos.y2};
+                if (_endShape.param.connectRules.connectInPlace) { pos.x2 = p1.x;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointEnd.label = label;
+                    endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};}
+                else pos.x2 = eEdge.m34.x;
+                pos.y2 = eEdge.m34.y;
+            } else
+            {
+                pos.pointEnd = {"label":"m12","x":pos.x2,"y":pos.y2};
+                if (_endShape.param.connectRules.connectInPlace) { pos.x2 = p1.y;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointEnd.label = label;
+                    endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};}
+                else pos.x2 = eEdge.m12.x;
+                pos.y2 = eEdge.m12.y;
+                
+            }
+        }
+        /*
         if (Utility.isIntersecting(eEdge.c1,eEdge.c2,p1,p2) )
         {
             pos.x2 = eEdge.m12.x;pos.y2 = eEdge.m12.y;pos.pointEnd = {"label":"m12","x":pos.x2,"y":pos.y2};
@@ -4383,8 +4567,14 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
 			console.log("No endShape to connect to");
 			return null;
 		}
+         */
         //
-        p1 = turningPoints[0];  p2 = turningPoints[1];pos.angle = p1.angle;
+        p1 = turningPoints[0];  p2 = turningPoints[1];
+        
+        angle = Math.abs(Math.atan( (p1.y - p2.y)/(p1.x - p2.x)  )*180/Math.PI);
+        angle = Math.round(angle/45) * 45; // round it to 45 degrees
+        
+        /*
         if (Utility.isIntersecting(bEdge.c1,bEdge.c2,p1,p2) )
         {
             pos.pointStart = {};
@@ -4423,7 +4613,59 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
 			console.log("No beginShape to connect from");
 			return  null;
 		}
+        */
         
+        if (angle === 0)
+        {
+            if (p2.x > p1.x)
+            {
+                pos.pointStart = {"label":"m23"};
+                pos.x1 = bEdge.m23.x;
+                if (_beginShape.param.connectRules.connectInPlace) { pos.y1 = p1.y;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointStart.label = label;
+                    beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
+                else pos.y1 = bEdge.m23.y;
+                
+                pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+            } else
+            {
+                pos.pointStart = {"label":"m41"};
+                pos.x1 = bEdge.m41.x;
+                if (_beginShape.param.connectRules.connectInPlace)  {pos.y1 = p1.y;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointStart.label = label;
+                    beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
+                else pos.y1 = bEdge.m41.y;
+                
+                pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+            }
+        } else
+        {
+            if (p2.y > p1.y)
+            {
+                pos.pointStart = {"label":"m34"};
+                pos.y1 = bEdge.m34.y;
+                if (_beginShape.param.connectRules.connectInPlace) {pos.x1 = p1.x;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointStart.label = label;
+                    beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
+                else pos.x1 = bEdge.m34.x;
+                
+                pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+            } else
+            {
+                pos.pointStart = {"label":"m12"};
+                pos.y1 = bEdge.m12.y;
+                if (_beginShape.param.connectRules.connectInPlace)  {pos.x1 = p1.x;
+                    var label = pos.pointEnd.label+"c";
+                    pos.pointStart.label = label;
+                    beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
+                else pos.x1 = bEdge.m12.x;
+                
+                pos.pointStart.x  = pos.x1;pos.pointStart.y = pos.y1;
+            }
+        }
 
         // align turning points to starting and ending points coordinates
         tLen = turningPoints.length;
@@ -4454,7 +4696,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
             }
             
         } else {
-            if (tLen === 2 && _beginShape.param.connectInPlace)
+            if (tLen === 2 && _beginShape.param.connectRules.connectInPlace)
             {
                 var angle = pos.angle;
                 if (angle === 90) pos.x2 = pos.x1;
@@ -4883,19 +5125,30 @@ Utility.Shape.dataFormatter = function(_dimensionData,_type,_shape)
             }
 
             var val = parseInt(_dimensionData.replace("%",""));
+            var child = true;
             // need to know parent's dimension to calculate pixel
             var parentDimension = null;
             if (_shape.parentShape) parentDimension = _shape.parentShape.dimension;
             else {
                 var sheetBook = MagicBoard.sheetBook;
                 parentDimension = {left:0,top:0,width:sheetBook.cwidth,height:sheetBook.cheight};
+                child = false;
             }
             var parentType = _type;
             if (_type === "left") parentType = "width";
             else if (_type === "top") parentType = "height";
 
-            return parentDimension[parentType] * val/100
-
+            val = parentDimension[parentType] * val/100;
+            if (isNaN(val)) return 0;
+            
+            if (child)
+            {
+                if (_type === "left") val = (parentDimension["left"] + val);
+                else if (_type === "top") val =  (parentDimension["top"] + val);
+            }
+                
+            if (isNaN(val)) return 0;
+            return val;
         }
     }
 
