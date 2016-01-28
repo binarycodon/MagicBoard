@@ -8,6 +8,7 @@ The MagicBoard SheetBook can contain many sheets.
 
 You could do any of the following (plus more, please look at detailed documentation)
 - Programmatically Add Shape to a Sheet
+- Define connection Rules, placement Rules, Children etc just by using JSON.
 - Place, Move or Resize Shape, connect two shapes by a connector line (with variety of arrows)
 - Get area of the shapes
 - Change property of the shape
@@ -33,11 +34,12 @@ A sample code is listed below
     // Create a Shape -- See sample JSON for a shape
     var shape = new Shape(sampleShapeJson);
     shape.draw(); // Draw the shape on the sheet
-    shape.addHover(); // add Hover property for editing
     shape.setPosition({"x":10,"y":400}); // (optional) set position of the shape
     
     //---------------------------------- This JSON below has to be defined before Shape is instantiated ---------------
     // sample Shape JSON, Shape consists of many components
+    
+    // Please see detail documentation on json description for defining a shape http://www.binarycodon.com/MagicBoard/API/index.html 
     
     //components of a database symbol (note the dimension contains x,y coordinate in percentage, please use MagicBoard's utility page to convert real coordinate to %)
       var DBComponent1 = {"type":"path","origDim":{},"dimension":{"d":[{"op":"M","x":0,"y":83.33333333333333},{"op":"L","x":0,"y":16.666666666666668},{"op":"C","x1":0,"y1":6.666666666666667,"x2":21.666666666666668,"y2":0,"x":50,"y":0},{"op":"C","x1":76.66666666666667,"y1":0,"x2":100,"y2":6.666666666666667,"x":100,"y":16.666666666666668},{"op":"L","x":100,"y":83.33333333333333},{"op":"C","x1":100,"y1":91.66666666666667,"x2":76.66666666666667,"y2":100,"x":50,"y":100},{"op":"C","x1":21.666666666666668,"y1":100,"x2":0,"y2":91.66666666666667,"x":0,"y":83.33333333333333},{"op":"Z"}]},"param":{"fill":"rgb(27,141,17)","stroke":"#FFFFFF","stroke-width":"2","stroke-miterlimit":"10","pointer-events":"all"},"lines":[{"op":"M","x":0,"y":50},{"op":"L","x":0,"y":10},{"op":"C","x1":0,"y1":4,"x2":13,"y2":0,"x":30,"y":0},{"op":"C","x1":46,"y1":0,"x2":60,"y2":4,"x":60,"y":10},{"op":"L","x":60,"y":50},{"op":"C","x1":60,"y1":55,"x2":46,"y2":60,"x":30,"y":60},{"op":"C","x1":13,"y1":60,"x2":0,"y2":55,"x":0,"y":50},{"op":"Z"}]}
