@@ -10,7 +10,8 @@ var inheritsFrom = function (child, parent) {
 };
 
 
-var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"theme":{"sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"white","lineColor":"#1b8d11","textColor":"white"},scratch:{"path":[]}
+var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"theme":{"sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"white","lineColor":"#1b8d11","textColor":"white","otherSheetVisibility":"hidden"},scratch:{"path":[]},changed:false,counter:0,
+callbacks:{"alert":"alert"}
 };
 
 /*
@@ -121,6 +122,7 @@ SheetBook.prototype.zoom = function(_zoomPercent)
     this.zoomCompensate = 1+(100 - _zoomPercent)/100;
 }
 
+
 /**
  * This Function sets HTML Dom element as parent anchor
  * This is useful to put a sheetbook inside external HTML
@@ -151,7 +153,7 @@ SheetBook.prototype.addSheet = function(_sheet)
     this.anchor.appendChild(canvas);
 
     this.setCurrentSheet(_sheet);
-
+    MagicBoard.changed = true;
 }
 /**
  * This Function retrieves a sheet from SheetBook with a given name
@@ -200,15 +202,18 @@ SheetBook.prototype.setCurrentSheet = function(_sheet)
     for (var i = this.sheets.length - 1; i > -1;i--)
     {
         var sheet = this.sheets[i];
-        sheet.canvas.style["visibility"] = "hidden"; // hide everything
+        sheet.canvas.style["visibility"] = MagicBoard.theme.otherSheetVisibility; // hide everything
+        sheet.active = false;
         if (nameSearch)
         {
             if (sheet.name === name)
             {
-                this.currentSheet = _sheet;
+                sheet.active = true;
+                this.currentSheet = sheet;
             }
         } else if (sheet === _sheet)
         {
+            _sheet.active = true;
             this.currentSheet = _sheet;
         }
     }
@@ -255,7 +260,22 @@ SheetBook.prototype.getCombinedImage = function()
 SheetBook.prototype.setHeight = function(_height)
 {
     this.cheight = _height;
-    this.currentCanvas.setAttribute("height",this.cheight);
+    this.anchor.style["height"] = _height;
+    //
+    for (var s =0,sLen=this.sheets.length;s < sLen;s++)
+    {
+        var sheet = this.sheets[s];
+        var canvas = sheet.getCanvas();
+        canvas.setAttribute("height",this.cheight);
+        canvas.style["height"] = this.cheight+"px";
+        setTimeout(function() {Utility.Sheet.createGrid(sheet)},10);
+    }
+    
+
+    this.connectCanvas.height = _height;
+    this.scratchCanvas.height = _height;
+    
+    //
 }
 
 /**
@@ -267,9 +287,36 @@ SheetBook.prototype.setHeight = function(_height)
 SheetBook.prototype.setWidth = function(_width)
 {
     this.cwidth = _width;
-    this.currentCanvas.setAttribute("width",_width);
+    this.anchor.style["width"] = _width;
+    //
+    for (var s =0,sLen=this.sheets.length;s < sLen;s++)
+    {
+        var sheet = this.sheets[s];
+        var canvas = sheet.getCanvas();
+        canvas.setAttribute("width",this.cwidth);
+        canvas.style["width"] = this.cwidth+"px";
+        setTimeout(function() {Utility.Sheet.createGrid(sheet)},10);
+    }
+    this.connectCanvas.width = _width;
+    this.scratchCanvas.width = _width;
+    //
 }
 
+
+/**
+ *  This function returns saved json format
+ *  @return {Object} saved JSON
+ */
+SheetBook.prototype.save = function()
+{
+    var saved = {"version":1,"sheets":[]};
+    for (s =0, sLen = this.sheets.length; s < sLen;s++)
+    {
+        saved.sheets.push(this.sheets[s].save());
+    }
+    MagicBoard.changed = false;
+    return saved;
+}
 
 /**
  * A Sheet is collection of drawingObjects
@@ -278,9 +325,9 @@ SheetBook.prototype.setWidth = function(_width)
 var Sheet = function(_options)
 {
     this.options = {};
-    if (_options) this.options = _options;
     this.name = "Sheet1";
     if (_options.name) this.name = _options.name;
+    this.temp = _options;
     this.canvas = null;
     this.init();
 }
@@ -292,7 +339,7 @@ var Sheet = function(_options)
 Sheet.prototype.init = function()
 {
     this.removedShapes = []; // keep only last 5
-
+    this.active = true;
     this.canvas = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.canvas.setAttribute("id",this.name);
     this.canvas.style["position"] = "absolute";
@@ -309,35 +356,33 @@ Sheet.prototype.init = function()
     Utility.Sheet.Markers(this);
 
     // create grids
-    this.courseGridSize = {"x":100,"y":100};
-    this.noOfXcourseGrids =  Math.floor(MagicBoard.sheetBook.cwidth / this.courseGridSize.x);
-    this.noOfYcourseGrids = Math.floor(MagicBoard.sheetBook.cheight / this.courseGridSize.y);
-    this.courseGrids = []; var gNo = 0;
-
-    for (var y = 0; y < this.noOfYcourseGrids;y++)
-    {
-        var y1 = y * this.courseGridSize.y;
-        var y2 = (y+1) * this.courseGridSize.y;
-
-        for (var x = 0 ; x < this.noOfXcourseGrids; x++)
-        {
-            var x1 = x * this.courseGridSize.x;
-            var x2 = (x+1) * this.courseGridSize.x;
-
-            var grid = {"filled":false,shapes:[],"x1":x1,"x2":x2,"y1":y1,"y2":y2,"index":gNo++};
-            this.courseGrids.push(grid);
-        }
-    }
+    Utility.Sheet.createGrid(this);
+    
     MagicBoard.sheetBook.currentSheet = this;
     this.shapes = [];
-    if (this.options.shapes)
+    if (this.temp.shapes)
     {
-        for (var s = 0, sLen = this.options.shapes.length;s < sLen ;s++)
+        for (var s = 0, sLen = this.temp.shapes.length;s < sLen ;s++)
         {
-            var shape = new Shape(this.options.shapes[s]);
+            var shape = null;
+            // check to see if it is shape or connectingline
+            var _desc = this.temp.shapes[s];
+            if (_desc.typeId && _desc.typeId === "ConnectorLine")
+            {
+                // add connection info
+                var cInfo = _desc;
+                cInfo.beginShape = Utility.Sheet.findShapeById(_desc.beginShapeId);
+                cInfo.endShape = Utility.Sheet.findShapeById(_desc.endShapeId);
+                this.connections.push(cInfo);
+            }
+            else {
+                
+            shape = new Shape(_desc);
             shape.draw();
             shape.setPosition({x:shape.dimension.left,y:shape.dimension.top});// this is needed for middle point calculations and alignments
+            }
         }
+        delete this["temp"]; // to avoid cyclical reference, delete temp options.
     }
 }
 
@@ -358,6 +403,33 @@ Sheet.prototype.rename = function(_newName)
 {
     this.name = _newName;
     this.options.name = _newName;
+    MagicBoard.changed = true;
+}
+
+/**
+ * This Function renames the sheet
+ *  @param {String} - _newName
+ *  @returns - nothing
+ */
+Sheet.prototype.delete = function()
+{
+    this.wipe();
+    
+    var sheets = MagicBoard.sheetBook.sheets;
+    for (var s = sheets.length - 1;s > -1;s--)
+    {
+        var sh = sheets[s];
+        if (sh === this)
+        {
+            sheets.splice(s,1);
+            break;
+        }
+    }
+
+    var canvas = this.getCanvas();
+    Utility.destroyDom(canvas,"dom");
+    MagicBoard.changed = true;
+    
 }
 
 /**
@@ -376,7 +448,7 @@ Sheet.prototype.wipe = function()
     }
 
     garbage.innerHTML = "";
-
+    MagicBoard.changed = true;
 }
 
 /**
@@ -397,6 +469,7 @@ Sheet.prototype.totalShapeArea = function()
 Sheet.prototype.addShape = function(_shape)
 {
     this.shapes.push(_shape);
+    MagicBoard.changed = true;
 }
 /**
  * This Function removes the last added Shape in the Sheet
@@ -415,6 +488,7 @@ Sheet.prototype.removeLastShape = function()
         this.removedShapes.splice(0,1); // remove the oldest
     }
     this.shapes.pop();
+    MagicBoard.changed = true;
 }
 
 /**
@@ -432,6 +506,7 @@ Sheet.prototype.removeShape = function(_shape)
         if (shape === _shape)
         {
             this.shapes.splice(i,1);
+            MagicBoard.changed = true;
             return;
         }
     }
@@ -463,6 +538,7 @@ Sheet.prototype.undo = function()
 {
     this.removeLastShape();
     this.reDraw();
+    MagicBoard.changed = true;
 }
 
 /**
@@ -478,6 +554,31 @@ Sheet.prototype.redo = function()
     this.removedShapes.splice(0,1);
 
     this.reDraw();
+    MagicBoard.changed = true;
+}
+
+/**
+ * This Function automatically aligns all the shapes within a sheet
+ *  @returns - nothing
+ */
+Sheet.prototype.align = function()
+{
+    var sLen = this.shapes.length;
+    for (var i = 0; i < sLen;i++)
+    {
+        var _shape = this.shapes[i];
+        var cx = _shape.frame.cx;var cy = _shape.frame.cy;
+        for (var s = i+1;s < sLen;s++)
+        {
+            var nextShape = this.shapes[s];
+            if (nextShape instanceof ConnectorLine) continue;
+            var nextCx = nextShape.frame.cx;var nextCy = nextShape.frame.cy;
+            var newPos = {x:nextShape.frame.left,y:nextShape.frame.top}; var alignmentNeeded = false;
+            if (Math.abs(cx - nextCx) < 26 && !(cx === nextCx) ) {newPos.x = cx - nextShape.frame.width/2;alignmentNeeded = true;}
+            if (Math.abs(cy - nextCy) < 26 && !(cy === nextCy)) {newPos.y = cy - nextShape.frame.height/2;alignmentNeeded = true;}
+            if (alignmentNeeded) {nextShape.setPosition(newPos);MagicBoard.changed = true;}
+        }
+    }
 }
 
 /**
@@ -617,6 +718,7 @@ Sheet.prototype.save = function()
 {
     var saved = {};
     saved.options = this.options;
+    saved.name = this.name;
     saved.shapes = [];
     for (var s = 0,sLen = this.shapes.length; s < sLen;s++)
     {
@@ -659,7 +761,7 @@ Sheet.prototype.changeThemeColor = function(_backgroundColor,_shapeColor,_arrowF
 Sheet.prototype.removeConnections = function(_shape)
 {
     //
-    var beginShapes = _shape.connectedFrom;
+    var beginShapes = _shape.connectedFrom; if (!beginShapes) return;
     var found = false;
     var bLen = beginShapes.length;
     for (var b = 0; b < eLen ; b++)
@@ -668,7 +770,7 @@ Sheet.prototype.removeConnections = function(_shape)
         Utility.Sheet.removeConnection(this,beginShape,_shape);
     }
 
-    var endShapes = _shape.connectedTo;
+    var endShapes = _shape.connectedTo; if (!endShapes) return;
     var eLen = endShapes.length;
     for (var e = 0; e < eLen ; e++)
     {
@@ -806,13 +908,28 @@ var Shape = function(_desc) {
 
     this.param = JSON.parse(JSON.stringify(_desc.param));
     this.originalFrame = JSON.parse(JSON.stringify(_desc.frame));
-    this.typeId = _desc.id;
-    this.frame = {"unit":"px"};
+    this.frame = JSON.parse(JSON.stringify(_desc.frame));
+    if (_desc.typeId) {
+        this.typeId = _desc.typeId;
+        if (_desc.id) this.id = _desc.id;
+        else this.id = _desc.id+MagicBoard.counter;
+    }
+    else if (_desc.id) {this.typeId = _desc.id; this.id = _desc.id+MagicBoard.counter; }
+    else this.id = "s"+MagicBoard.counter;
+
+    MagicBoard.counter++;
+
+    if (_desc.parentId)
+    {
+        _desc.parent = Utility.Sheet.findShapeById(_desc.parentId);
+    }
+    
     if (_desc.parent)
     {
         this.param.alignmentRails = false;
         this.param.noGridBlock = true;
         this.parentShape = _desc.parent;
+        this.parentId = this.parentShape.id;
         var parentDim = this.parentShape.dimension;
         //_desc.frame.width = parentDim.width - 4;
         //if (_desc.frame.height > parentDim.height) _desc.frame.height = parentDim.height - 4;
@@ -883,12 +1000,11 @@ var Shape = function(_desc) {
     
     
     // define min and max left and top
-    if (!this.frame.minLeft) {this.frame.minLeft = 10;
-        this.frame.maxRight = MagicBoard.sheetBook.cwidth;
+    if (!this.frame.minLeft) {
+        this.frame.minLeft = 10;
     }
     if (!this.frame.minTop) {
         this.frame.minTop = 10;
-        this.frame.maxBottom = MagicBoard.sheetBook.cheight;
     }
 
     // will define max left and top later
@@ -909,7 +1025,8 @@ var Shape = function(_desc) {
      */
     if (_desc.connectedFromIds) this.connectedFromIds = _desc.connectedFromIds;
     if (_desc.connectedToIds) this.connectedToIds = _desc.connectedToIds;
-    if (_desc.id) this.id = _desc.id;
+
+
     this.properties = {};
     this.components = [];
     var cLen = _desc.componentParms.length;
@@ -973,6 +1090,13 @@ Shape.prototype.getShapeDetail = function()
     desc.param = this.param ;
     desc.frame = this.frame ;
     desc.events = this.events;
+    desc.typeId = this.typeId;
+    desc.parentId = this.parentId;
+    
+    if (this.connectedFromIds) desc.connectedFromIds = this.connectedFromIds;
+    if (this.connectedToIds) desc.connectedToIds = this.connectedToIds;
+    desc.id =  this.id ;
+    
     
         desc = JSON.parse(JSON.stringify(desc));
     desc.componentParms = [];
@@ -988,7 +1112,16 @@ Shape.prototype.getShapeDetail = function()
         var compDetail = component.getComponentDetails();
         desc.componentParms.push(compDetail);
     }
+    var childDetails = [];
+    chLen = this.children.length;
+    for (var ch = 0; ch < chLen;ch++)
+    {
+        var child = this.children[ch];
+        var childDetail = child.getShapeDetail();
+        childDetails.push(childDetail);
+    }
 
+    if (childDetails.length > 0) _desc.childrenParms = childDetails;
     return desc;
 }
 
@@ -1035,17 +1168,18 @@ Shape.prototype.addHover = function()
     var dom = this.dom;
 
     dom.onmouseover = function () {
-        
+        if (!shape.currentSheet.active) return;
         MagicBoard.indicators.mouseover.push(shape);
         if (MagicBoard.indicators.lineActive === shape)
         {
             // reentry
-            MagicBoard.scratch.connectToSame = true;
+            //MagicBoard.scratch.connectToSame = true;
         }
         //console.log("mouse over "+event.target+" current "+event.currentTarget);
     }
 
     dom.onmouseout = function () {
+        if (!shape.currentSheet.active) return;
         event.preventDefault();
         // find the shape and remove it
         for (var i = MagicBoard.indicators.mouseover.length -1;i > -1;i--)
@@ -1085,6 +1219,14 @@ Shape.prototype.click = function()
 
 Shape.prototype.doubleClick = function()
 {
+    var ev = this.events;
+    if (ev)
+    {
+        if (!ev.doubleClick) ev.doubleClick = {"override":null,"pre":null,"post":null};
+        if (ev.doubleClick.override) {return window[ev.doubleClick.override].call(this);}
+        if (ev.doubleClick.pre) window[ev.doubleClick.pre].call(this);
+    }
+    
     var targetShape = this;
     var target = event.target;
     if (target instanceof SVGTextElement)
@@ -1187,7 +1329,7 @@ Shape.prototype.move = function(pos,clickPos)
     ctx.rect(left - 2,top - 2,(dim.width+4),(dim.height+4));
 
     ctx.stroke();
-
+    MagicBoard.changed = true;
     // done with the alignments
 }
 
@@ -1238,8 +1380,8 @@ Shape.prototype.resizeStop = function()
     this.dimension.resizeY = null;
     this.dimension.resizeWidth = null;
     this.dimension.resizeHeight = null;
-
-    Utility.Shape.definePeriferalPoints(this.dimension);
+    var parentDim = null; if (this.parentShape) parentDim = this.parentShape.frame;
+    Utility.Shape.definePeriferalPoints(this.dimension,parentDim);
     // recalculate shape Dim
 
     MagicBoard.indicators.resize = -1;
@@ -1282,6 +1424,7 @@ Shape.prototype.resizeStop = function()
     {
         Utility.Shape.adjustComponents(this,{}); // this is recalculate any child attributes
     }
+    MagicBoard.changed = true;
 }
 
 /**
@@ -1334,6 +1477,8 @@ Shape.prototype.refreshConnection = function(_context)
         var beginShape =  beginShapes[b];
         // get existing cInfo
         var cInfo = currentSheet.getConnection(beginShape,this);
+        if (!cInfo) {
+        }
         Utility.Shape.reCalculateConnectionPoints(cInfo);
         currentSheet.drawConnections(_context);
     }
@@ -1523,44 +1668,36 @@ Shape.prototype.setPosition = function(pos,align)
         this.removeAlignments();
     }
     var dim = this.frame;
-
-    //if (dim.left === pos.x && dim.top === pos.y) return;
-    /*
-     var child = this.dom.firstElementChild;
-     child.setAttribute("x",pos.x);
-     child.setAttribute("y",pos.y);
-     */
+    var parentDim = null;
+    if (this.parentShape)
+    {
+        parentDim = this.parentShape.dimension;
+        
+        this.frame.minLeft = parentDim.left;
+        this.frame.maxRight = parentDim.left + parentDim.width;
+        this.frame.minTop = parentDim.top;
+        this.frame.maxBottom = parentDim.top + parentDim.height;
+    }
 
     if (pos.diffX)
     {
         if (dim.left) pos.x = dim.left + pos.diffX;
         if (dim.top) pos.y = dim.top + pos.diffY;
         
-        if (this.parentShape)
-        {
-            var parentDim = this.parentShape.dimension;
-            
-            this.frame.minLeft = parentDim.left;
-            this.frame.maxRight = parentDim.left + parentDim.width;
-            this.frame.minTop = parentDim.top;
-            this.frame.maxBottom = parentDim.top + parentDim.height;
-        }
-        
-        /*
-        this.frame.minLeft = this.frame.minLeft + pos.diffX;
-        this.frame.maxRight = this.frame.maxRight + pos.diffX;
-        this.frame.minTop = this.frame.minTop + pos.diffY;
-        this.frame.maxBottom = this.frame.maxBottom + pos.diffY;
-        */
-        
+    } else if (parentDim)
+    {
+        if (dim.offsetX) pos.x = parentDim.left + dim.offsetX;
+        if (dim.offsetY) pos.y = parentDim.top + dim.offsetY;
     }
+        
     // make sure Pos is within the boundary
-    
+    var maxRight = this.frame.maxRight; if (!maxRight) maxRight = MagicBoard.sheetBook.cwidth;
+    var maxBottom = this.frame.maxBottom; if (!maxBottom) maxBottom = MagicBoard.sheetBook.cheight;
     
     if (pos.x < this.frame.minLeft) pos.x = this.frame.minLeft;
     if (pos.y < this.frame.minTop) pos.y = this.frame.minTop;
-    if (this.frame.maxRight < (pos.x + dim.width)) pos.x = this.frame.maxRight - dim.width - 5;
-    if (this.frame.maxBottom < (pos.y+dim.height)) pos.y = this.frame.maxBottom - dim.height - 5;
+    if (maxRight < (pos.x + dim.width)) {if (this.parentShape) pos.x = this.frame.maxRight - dim.width ; else MagicBoard.sheetBook.setWidth(MagicBoard.sheetBook.cwidth+512);}
+    if (maxBottom < (pos.y+dim.height)) {if (this.parentShape) pos.y = this.frame.maxBottom - dim.height ;else MagicBoard.sheetBook.setHeight(MagicBoard.sheetBook.cheight+512);}
     
     if (align)
     {
@@ -1575,7 +1712,7 @@ Shape.prototype.setPosition = function(pos,align)
     dim.left = pos.x;
     dim.top = pos.y;
 
-    Utility.Shape.definePeriferalPoints(dim);
+    Utility.Shape.definePeriferalPoints(dim,parentDim);
 
     Utility.Shape.placement(this);
 
@@ -1705,6 +1842,7 @@ Shape.prototype.applyProperty = function(_propKey,_propName,_propType,_value,_pr
         var prop = component.properties[_propKey];
         if (prop && prop.label === _propLabel && prop.group === _propGroup) component.applyProperty(_propName,_propType,_value,_propLabel,_propGroup);
     }
+    MagicBoard.changed = true;
 };
 
 Shape.prototype.getProperties = function()
@@ -1782,6 +1920,28 @@ Shape.prototype.deleteShape = function()
     var gParent = this.dom.parentNode;
     garbage.appendChild(gParent);
     garbage.innerHTML = "";
+    
+    // delete the children if any
+    var pId  = this.id;
+    for (var c = this.children.length - 1;c > -1;c--)
+    {
+        this.children[c].deleteShape();
+    }
+    
+    if (this.parentShape)
+    {
+        // remove itself from its parent's children list.
+        var siblings = this.parentShape.children;
+        for (var s = siblings.length -1;s > -1;s--)
+        {
+            var sibling = siblings[s];
+            if (sibling === this)
+            {
+                siblings.splice(s,1);
+                break;
+            }
+        }
+    }
 
     // delete all objects
     for (var k in this)
@@ -1801,6 +1961,7 @@ Shape.prototype.deleteShape = function()
             this[k] = null;
         }
     }
+    MagicBoard.changed = true;
 }
 
 
@@ -1819,7 +1980,7 @@ Shape.prototype.selectToggle = function()
     if (MagicBoard.indicators.hilight)
     {
         hilighter.style["visibility"] = "hidden";
-        setTimeout(function(){var shape = MagicBoard.indicators.hilight;MagicBoard.indicators.hilight = false;if (shape.events.click.post) window[shape.events.click.post].call(shape);},1);
+        setTimeout(function(){var shape = MagicBoard.indicators.hilight;MagicBoard.indicators.hilight = false;if (shape.events && shape.events.click && shape.events.click.post) window[shape.events.click.post].call(shape);},1);
         this.addAlignments();
 
     } else
@@ -1865,6 +2026,7 @@ Shape.prototype.updateText = function(_text,_index)
             counter++;
         }
     }
+    MagicBoard.changed = true;
 }
 
 /**
@@ -1902,14 +2064,27 @@ Shape.prototype.save = function()
             continue;
         }
 
-        var name = this[k].constructor.name
-        if ( name === "Number" || name === "String" || name === "Object" )
-            saved[k] = this[k];
+        if (this[k])
+        {
+            var name = this[k].constructor.name
+            if ( name === "Number" || name === "String" || name === "Object" )
+                saved[k] = this[k];
+        }
+
 
     }
     return saved;
 }
 
+/**
+ * This Function is used to rotate the shape
+ *  @param - _angle
+ *  @returns - nothing
+ */
+Shape.prototype.rotate = function(_angle)
+{
+
+}
 
 /**
  * This Function is used to draw or paint the shape
@@ -1920,6 +2095,7 @@ Shape.prototype.draw = function() {
     var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
     svg.appendChild(g);
     this.reDraw(g);
+    /*
     var cLen = this.components.length;
     for (var c = 0; c < cLen ; c++)
     {
@@ -1930,6 +2106,7 @@ Shape.prototype.draw = function() {
             g.appendChild(d);
         }
     }
+    */
     var ev = this.events;
     if (ev && ev.hover && ev.hover.override) {
             window[ev.hover.override].call(this);
@@ -2123,7 +2300,7 @@ inheritsFrom(ConnectorLine,Shape);
  * This Function is used to change themecolor
  * @param {Color} _shapeColor
  * @param {Color} _borderColor
- * @oaran {Color} _lineColor
+ * @paran {Color} _lineColor
  *  @returns - nothing
  */
 ConnectorLine.prototype.changeThemeColor = function(_shapeColor,_borderColor,_lineColor)
@@ -2142,7 +2319,21 @@ ConnectorLine.prototype.changeThemeColor = function(_shapeColor,_borderColor,_li
 ConnectorLine.prototype.save = function()
 {
     // do not save connectors, let it rebuild
-    return null;
+    var save = {"typeId":"ConnectorLine","angleEnd":0,"angleStart":0,"beginShapeId":null,"endShapeId":null,"connProp":{"begin":null,"end":null,"style":"","type":""},"param":{},"pos":{"x1":null,"y1":null,"x2":null,"y2":null,"pointStart":{"label":""},"pointEnd":{"label":""}},"shapeId":"","turningPoints":[]
+    };
+    
+    var cInfo = this.cInfo;
+    save.angleStart = cInfo.angleStart;save.angleEnd = cInfo.angleEnd;
+    save.beginShapeId = cInfo.beginShape.id;save.endShapeId = cInfo.endShape.id;
+    save.connProp = cInfo.connProp;
+    save.param = cInfo.param;
+    save.pos.x1 = cInfo.pos.x1;save.pos.x2 = cInfo.pos.x2;save.pos.y1 = cInfo.pos.y1;save.pos.y2 = cInfo.pos.y2;
+    save.pos.pointStart = cInfo.pos.pointStart;save.pos.pointEnd = cInfo.pos.pointEnd;
+    save.turningPoints = cInfo.turningPoints;
+    save.properties = cInfo.properties;
+    save.shapeId = cInfo.shape.id;
+    save.events = cInfo.events;
+    return save;
 }
 
 
@@ -2319,7 +2510,9 @@ var ShapeComponent = function(_desc) {
         } else
             this.dom.setAttribute(k,this.param[k]);
     }
-    if (this.innerHTML) this.dom.appendChild(document.createTextNode(this.innerHTML)) ;
+
+    //if (this.innerHTML) Utility.ShapeComponent.createTextNode(this);
+        // this.dom.appendChild(document.createTextNode(this.innerHTML)) ;
     this.dom.setAttribute("pointer-events","all");
     this.dom.setAttribute("draggable","false");
     //this.dom.setAttribute("transform","translate(1,1)");
@@ -2401,6 +2594,8 @@ ShapeComponent.prototype.construct = function()
             }
         }
     }
+    
+    if (this.innerHTML) Utility.ShapeComponent.createTextNode(this);
 
     return dom;
 }
@@ -2507,9 +2702,19 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
                     }
                 }
                 break;
+            case "offsetX":
+                var x = derivedDimension.x;
+                if (x === 0 || x) derivedDimension.x = x + this.dimension[k];
+                else _offsetX = this.dimension[k];
+                break;
+            case "offsetY":
+                var y = derivedDimension.y;
+                if (y === 0 || y) derivedDimension.y = y + this.dimension[k];
+                else _offsetY = this.dimension[k];
+                break;
         }
 
-        if (val) derivedDimension[k] = val;
+        if (val === 0 || val) derivedDimension[k] = val;
     }
     
     if (this.type === "text" || this.type === "rect")
@@ -2517,12 +2722,12 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
         var dom = this.dom;
         if (this.dimension.cx)
         {
-            var x =  parseInt(dom.getAttribute("cx")) - parseInt(dom.getAttribute("width"))/2 + _offsetX;
+            var x =  derivedDimension.cx - derivedDimension.width/2 + _offsetX;
             derivedDimension.x = x;
         }
         if (this.dimension.cy)
         {
-            var y = parseInt(dom.getAttribute("cy")) - parseInt(dom.getAttribute("height"))/2 + _offsetY;
+            var y = derivedDimension.cy - derivedDimension.height/2 + _offsetY;
             derivedDimension.y = y;
         }
     }
@@ -2549,6 +2754,12 @@ ShapeComponent.prototype.drawSVG = function(_offsetX, _offsetY)
     } else if (this.type === "text")
     {
         dom.innerHTML = this.dom.innerHTML;
+        var children = this.dom.children;
+        for (var c=0,cLen = children.length;c < cLen;c++)
+        {
+            var childDom = children[c];
+            childDom.removeAttribute("x"); // since we don't have high level SVG Tag, remove x from text node.
+        }
     }
     return dom;
 }
@@ -2656,24 +2867,8 @@ ShapeComponent.prototype.applyProperty = function(_name,_type,_value,_label,_gro
         }
     } else if (_type === "dom")
     {
-        var valArray = _value.split("\n");
         this.innerHTML = _value;
-        this.dom.innerHTML = "";
-        //this.dom.appendChild(document.createTextNode(_value));
-        var str = "";
-        // find x, and font-size
-        var dy = "dy =''";
-        var x = this.derivedDimension["x"];
-        for (var i =0, iLen = valArray.length;i < iLen;i++)
-        {
-            var val = valArray[i];
-            if (val)
-            {
-                str += "<tspan name='mg' "+dy+">"+val+"</tspan>";
-            }
-            dy = " dy = '"+this.param["font-size"]+"px' ";
-        }
-        this.dom.innerHTML = str;
+        Utility.ShapeComponent.createTextNode(this);
     }
 }
 
@@ -2684,8 +2879,12 @@ ShapeComponent.prototype.applyProperty = function(_name,_type,_value,_label,_gro
 ShapeComponent.prototype.updateText = function(_text)
 {
     this.innerHTML = _text;
+    Utility.ShapeComponent.createTextNode(this);
+    
+    /*
     this.dom.innerHTML = "";
     this.dom.appendChild(document.createTextNode(_text));
+    */
 }
 
 
@@ -3229,20 +3428,24 @@ MagicBoard.eventStop = function(e)
             }
             else if ( !beginShape || beginShape === endShape || beginShape === endShape.parentShape)
             {
+                Utility.Sheet.connect(true);
+                /*
                 if (MagicBoard.scratch.connectToSame)
                 {
-                    beginShape.connectTo(endShape); // connect to itself
+                    //Utility.Sheet.connect();
+                    //beginShape.connectTo(endShape); // connect to itself
                     delete MagicBoard.scratch["connectToSame"];
                 } else
                 {
                     endShape.click();
-                    MagicBoard.scratch.path = [];
                 }
+                */
 
             }
             else
             {
-                beginShape.connectTo(endShape);
+                Utility.Sheet.connect(false);
+                //beginShape.connectTo(endShape);
             }
         } else if (MagicBoard.indicators.lineActive)
         {
@@ -3365,7 +3568,7 @@ MagicBoard.getPos = function(e) {
     return {x: x, y:y};
 }
 /** @namespace Utility **/
-var Utility = {"Shape":{},"Sheet":{},"SheetBook":{}};
+var Utility = {"ShapeComponent":{},"Shape":{},"Sheet":{},"SheetBook":{}};
 
 /**
  *  This Utility function is for internal use
@@ -3502,6 +3705,12 @@ Utility.SheetBook.createWorkItems = function(_sheetBook)
      _sheetBook.stretcher.setAttribute("style","z-index:10;position:absolute;left:0px;top:0px;height:100px;width:100px;visibility:hidden");
      _sheetBook.stretcher.setAttribute("name","workItem");
      */
+    
+    var _svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    _sheetBook.sampleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    _sheetBook.sampleText.setAttribute("style","visibility:hidden");
+    _svg.appendChild(_sheetBook.sampleText);
+    document.body.appendChild(_svg);
 
 }
 
@@ -3614,6 +3823,30 @@ Utility.Sheet.Markers = function(_sheet)
      */
     _sheet.canvas.innerHTML = defString;
 
+}
+
+Utility.Sheet.createGrid = function(_sheet)
+{
+    //xx
+    _sheet.courseGridSize = {"x":100,"y":100};
+    _sheet.noOfXcourseGrids =  Math.floor(MagicBoard.sheetBook.cwidth / _sheet.courseGridSize.x);
+    _sheet.noOfYcourseGrids = Math.floor(MagicBoard.sheetBook.cheight / _sheet.courseGridSize.y);
+    _sheet.courseGrids = []; var gNo = 0;
+    
+    for (var y = 0; y < _sheet.noOfYcourseGrids;y++)
+    {
+        var y1 = y * _sheet.courseGridSize.y;
+        var y2 = (y+1) * _sheet.courseGridSize.y;
+        
+        for (var x = 0 ; x < _sheet.noOfXcourseGrids; x++)
+        {
+            var x1 = x * _sheet.courseGridSize.x;
+            var x2 = (x+1) * _sheet.courseGridSize.x;
+            
+            var grid = {"filled":false,shapes:[],"x1":x1,"x2":x2,"y1":y1,"y2":y2,"index":gNo++};
+            _sheet.courseGrids.push(grid);
+        }
+    }
 }
 
 /**
@@ -3773,6 +4006,50 @@ Utility.Sheet.findOwner = function(_dom)
 
     return null;
 }
+
+/**
+ *  This Utility function is for internal use only
+ *  @static
+ */
+Utility.Sheet.connect = function(_sameShape)
+{
+    var _sheet = MagicBoard.sheetBook.currentSheet;
+    var path = MagicBoard.scratch.path; var beginShape = null;var endShape = null;
+    if ( _sameShape && path.length < 6)
+    {
+        beginShape =  MagicBoard.indicators.lineActive;
+        if (!beginShape)
+        { // this means another object is hilighted
+            beginShape = MagicBoard.indicators.mouseover[0];
+            if (beginShape)
+            {
+                var prevHilighted =  MagicBoard.indicators.hilight;
+                if (prevHilighted) prevHilighted.selectToggle();
+            }
+        }
+        beginShape.click();
+        return;
+    }
+    var startPos = path[0]; var beginShapes = _sheet.findShapeByPosition(startPos);
+    for (var s = 0,sLen = beginShapes.length;s < sLen;s++)
+    {
+        var sh = beginShapes[s];
+        if (!sh.param.connectRules.noConnection) {beginShape = sh;break;}
+    }
+    var endPos = path[path.length - 1]; var endShapes = _sheet.findShapeByPosition(endPos);
+    for (var e = 0,eLen = endShapes.length;e < eLen;e++)
+    {
+        var sh = endShapes[e];
+        if (!sh.param.connectRules.noConnection) {endShape = sh;break;}
+    }
+    
+    if (beginShape && endShape) {
+        if (path.length > 5) beginShape.connectTo(endShape);
+        else endShape.click();
+    }
+    return;
+}
+
 /**
  *  This Utility function is for internal use only
  *  @static
@@ -3826,7 +4103,7 @@ Utility.Sheet.findShapeById = function(_id)
     }
 }
 
-Utility.Shape.definePeriferalPoints = function(_dim)
+Utility.Shape.definePeriferalPoints = function(_dim,_parentDim)
 {
     _dim.right = _dim.left + _dim.width;
     _dim.bottom = _dim.top + _dim.height;
@@ -3851,6 +4128,12 @@ Utility.Shape.definePeriferalPoints = function(_dim)
         eg.c1 = edgePoints.c1;eg.c2 = edgePoints.c2;eg.c3 = edgePoints.c3;eg.c4 = edgePoints.c4;
         eg.m12 = edgePoints.m12;eg.m23 = edgePoints.m23;eg.m34 = edgePoints.m34;eg.m41 = edgePoints.m41;
     } else _dim.edgePoints = edgePoints;
+    
+    if (_parentDim)
+    {
+        _dim.offsetX = _dim.left - _parentDim.left;
+        _dim.offsetY = _dim.top - _parentDim.top;
+    }
 }
 
 Utility.Shape.adjustComponents = function(_shape,_diff)
@@ -4076,8 +4359,9 @@ Utility.Shape.showProperty = function()
 Utility.Shape.placement = function(_shape)
 {
     var changes = false;
-    var dim = _shape.frame;
+    var dim = _shape.frame;var parentDim = null;
     var origDim = JSON.parse(JSON.stringify(dim));
+    if (_shape.parentShape) parentDim = _shape.parentShape.frame;
     var placementRules = _shape.param.placementRules;
     if (placementRules)
     {
@@ -4088,7 +4372,7 @@ Utility.Shape.placement = function(_shape)
             if (rule.ref === "parent")
             {
                 if (!_shape.parentShape) break;
-                restrictDim = _shape.parentShape.dimension[rule.refDimension];
+                restrictDim = parentDim[rule.refDimension];
             } else if (rule.ref === "sibling")
             {
                 // find previous sibling
@@ -4113,7 +4397,7 @@ Utility.Shape.placement = function(_shape)
                                 break;
                             case "cy":
                                 dim.top = dim.cy - (dim.height)/2;
-                                dim.bottom = dom.top + dim.height;
+                                dim.bottom = dim.top + dim.height;
                                 break;
                             case "left":
                                  dim.right = dim.left + dim.width;
@@ -4137,7 +4421,7 @@ Utility.Shape.placement = function(_shape)
                                 break;
                             case "cy":
                                 dim.top = dim.cy - (dim.height)/2;
-                                dim.bottom = dom.top + dim.height;
+                                dim.bottom = dim.top + dim.height;
                                 break;
                             case "left":
                                 dim.right = dim.left + dim.width;
@@ -4161,7 +4445,7 @@ Utility.Shape.placement = function(_shape)
                                 break;
                             case "cy":
                                 dim.top = dim.cy - (dim.height)/2;
-                                dim.bottom = dom.top + dim.height;
+                                dim.bottom = dim.top + dim.height;
                                 break;
                             case "left":
                                 dim.right = dim.left + dim.width;
@@ -4179,10 +4463,10 @@ Utility.Shape.placement = function(_shape)
     
     if (changes)
     {
-        dim.width = dim.right - dim.left;
-        dim.height =  dim.bottom  - dim.top;
+        if (dim.right) dim.width = dim.right - dim.left;
+        if (dim.bottom) dim.height =  dim.bottom  - dim.top;
         
-        Utility.Shape.definePeriferalPoints(dim);
+        Utility.Shape.definePeriferalPoints(dim,parentDim);
         
         for (var k in origDim)
         {
@@ -4204,7 +4488,7 @@ Utility.Shape.placement = function(_shape)
                     break;
                 case "bottom":
                 case "hight":
-                    _shape.dom.setAttribute("height",dim.width );
+                    _shape.dom.setAttribute("height",dim.height );
                     break;
             }
         }
@@ -4256,7 +4540,7 @@ Utility.Shape.align = function(pos)
 Utility.Shape.connectTo = function(_beginShape,_endShape,_connProp)
 {
     var ev = _beginShape.events;
-    
+    /* not needed any more because all the calls are now going thru Utility.Sheet.connect
     while (_beginShape.parentShape) {
         
         var sh = _beginShape.parentShape;
@@ -4267,6 +4551,7 @@ Utility.Shape.connectTo = function(_beginShape,_endShape,_connProp)
         var sh = _endShape.parentShape;
         if (sh) { if (!sh.param.connectRules.noConnection) _endShape = sh; else break;}
     }
+    */
     var endShapes = _beginShape.connectedTo;
     var found = false;
     var eLen = endShapes.length;
@@ -4295,6 +4580,7 @@ Utility.Shape.connectTo = function(_beginShape,_endShape,_connProp)
     var currentSheet = MagicBoard.sheetBook.currentSheet;
     currentSheet.addConnections(cInfo);
     currentSheet.drawConnections();
+    MagicBoard.changed = true;
 }
 
 /**
@@ -4492,6 +4778,12 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
         /*
          
          */
+        var findLabel = function(_dim,_label)
+        {
+            var label =  _label+"c";
+            if (_dim.edgePoints[label]) return findLabel(_dim,label);
+            else return label;
+        }
         turningPoints.push(MagicBoard.scratch.path[MagicBoard.scratch.path.length - 1]);
         // find out which line is intersecting for begin object
         
@@ -4510,7 +4802,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                  pos.pointEnd = {"label":"m23","x":pos.x2,"y":pos.y2};
                  pos.x2 = eEdge.m23.x;
                 if (_endShape.param.connectRules.connectInPlace) { pos.y2 = p1.y;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(endDim,pos.pointEnd.label);
                     pos.pointEnd.label = label;
                     endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};
                 }
@@ -4521,9 +4813,10 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 pos.pointEnd = {"label":"m41","x":pos.x2,"y":pos.y2};
                 pos.x2 = eEdge.m41.x;
                 if (_endShape.param.connectRules.connectInPlace) { pos.y2 = p1.y;
-                    var label = pos.pointEnd.label+"c";
+                    var label =findLabel(endDim,pos.pointEnd.label);
                     pos.pointEnd.label = label;
-                    endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};}
+                    endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};
+                }
                 else pos.y2 = eEdge.m41.y;
 
             }
@@ -4533,7 +4826,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
             {
                 pos.pointEnd = {"label":"m34","x":pos.x2,"y":pos.y2};
                 if (_endShape.param.connectRules.connectInPlace) { pos.x2 = p1.x;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(endDim,pos.pointEnd.label);
                     pos.pointEnd.label = label;
                     endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};}
                 else pos.x2 = eEdge.m34.x;
@@ -4542,7 +4835,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
             {
                 pos.pointEnd = {"label":"m12","x":pos.x2,"y":pos.y2};
                 if (_endShape.param.connectRules.connectInPlace) { pos.x2 = p1.y;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(endDim,pos.pointEnd.label);
                     pos.pointEnd.label = label;
                     endDim.edgePoints[label] = {x:pos.x2,y:pos.y2};}
                 else pos.x2 = eEdge.m12.x;
@@ -4622,7 +4915,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 pos.pointStart = {"label":"m23"};
                 pos.x1 = bEdge.m23.x;
                 if (_beginShape.param.connectRules.connectInPlace) { pos.y1 = p1.y;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(beginDim,pos.pointStart.label);
                     pos.pointStart.label = label;
                     beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
                 else pos.y1 = bEdge.m23.y;
@@ -4633,7 +4926,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 pos.pointStart = {"label":"m41"};
                 pos.x1 = bEdge.m41.x;
                 if (_beginShape.param.connectRules.connectInPlace)  {pos.y1 = p1.y;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(beginDim,pos.pointStart.label);
                     pos.pointStart.label = label;
                     beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
                 else pos.y1 = bEdge.m41.y;
@@ -4647,7 +4940,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 pos.pointStart = {"label":"m34"};
                 pos.y1 = bEdge.m34.y;
                 if (_beginShape.param.connectRules.connectInPlace) {pos.x1 = p1.x;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(beginDim,pos.pointStart.label);
                     pos.pointStart.label = label;
                     beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
                 else pos.x1 = bEdge.m34.x;
@@ -4658,7 +4951,7 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 pos.pointStart = {"label":"m12"};
                 pos.y1 = bEdge.m12.y;
                 if (_beginShape.param.connectRules.connectInPlace)  {pos.x1 = p1.x;
-                    var label = pos.pointEnd.label+"c";
+                    var label = findLabel(beginDim,pos.pointStart.label);
                     pos.pointStart.label = label;
                     beginDim.edgePoints[label] = {x:pos.x1,y:pos.y1};}
                 else pos.x1 = bEdge.m12.x;
@@ -4701,6 +4994,9 @@ Utility.Shape.calculateConnectionPoints = function(_beginShape,_endShape,_connPr
                 var angle = pos.angle;
                 if (angle === 90) pos.x2 = pos.x1;
 				else pos.y2 = pos.y1;
+                
+                endDim.edgePoints[pos.pointEnd.label] = {x:pos.x2,y:pos.y2};
+                
             }
             turningPoints = [];
         }
@@ -5005,6 +5301,11 @@ Utility.Shape.defineConnectionCoordinates = function(_connectorLine,_cInfo)
     _connectorLine.cInfo.angleStart = angleStart; _connectorLine.cInfo.angleEnd = angleEnd;
     _connectorLine.cx1 = cx1; _connectorLine.cx2 = cx2;_connectorLine.cy1 = cy1;_connectorLine.cy2 = cy2;
 
+    // define frame
+    var cFrame = _connectorLine.frame;
+    cFrame.right = cFrame.left + cFrame.width; cFrame.bottom = cFrame.top + cFrame.height;
+    
+    
     lines.push({"op":"L","x":x2,"y":y2});
     d.push({"op":"L","x":(x2 - left)*100/width,"y":(y2 - top)*100/height});
     return {"d":d,"lines":lines};
@@ -5176,6 +5477,100 @@ Utility.Shape.recalculateDimensions = function(_shape)
     }
 }
 
+/**
+ *  This Utility function is for internal use
+ *  @static
+ */
+Utility.ShapeComponent.createTextNode = function(_shapeComponent)
+{
+    var txt = _shapeComponent.innerHTML;
+    var tLen = 0;var maxLen = 0;var parentFrame = _shapeComponent.parentShape;var parentFrameDim = parentFrame.frame;
+    var fontSize = _shapeComponent.param["font-size"];if (!fontSize) fontSize = 12;maxHeight = 3;
+    var valArray = [];
+    
+    if (parentFrameDim.maxRight)
+    {
+        // we need to split the text
+        var wordArray = txt.split(" ");
+        var smpTxt = wordArray[0];var prevTxt = ""; maxLen = parentFrameDim.maxRight - parentFrameDim.left ;// keep extra 3 pixel for safty
+        for (var w = 1,wLen = wordArray.length;w < wLen;w++)
+        {
+            smpTxt += " "+wordArray[w];
+            MagicBoard.sheetBook.sampleText.innerHTML = "";
+            MagicBoard.sheetBook.sampleText.appendChild(document.createTextNode(smpTxt));tLen = MagicBoard.sheetBook.sampleText.getComputedTextLength();
+            if (tLen > maxLen  )
+            {
+                maxHeight = maxHeight + fontSize;
+                valArray.push(prevTxt); // this one line
+                smpTxt = wordArray[w];
+            }
+            
+            prevTxt = smpTxt;
+        }
+        if (wLen === 1) prevTxt = smpTxt; // this means there is only one word
+        if (prevTxt) {valArray.push(prevTxt);maxHeight = maxHeight + fontSize;}
+    } else
+    {
+        valArray = txt.split("\n");
+        for (var v = 0, vLen = valArray.length;v < vLen;v++)
+        {
+            var smpTxt = valArray[v];
+            maxHeight = maxHeight + fontSize ;
+            MagicBoard.sheetBook.sampleText.innerHTML = "";
+            MagicBoard.sheetBook.sampleText.appendChild(document.createTextNode(smpTxt));tLen = MagicBoard.sheetBook.sampleText.getComputedTextLength();
+            if (tLen > maxLen) maxLen = tLen;
+
+        }
+    }
+    
+    if (maxLen > parentFrameDim.width) {
+        
+        parentFrameDim.width = maxLen; // remember parentFrame is just Text Frame here nothing else
+        parentFrame.dom.setAttribute("width",maxLen + 5);
+        
+        _shapeComponent.innerHTML = ""; // this will make sure that construct will not call createTextNode again
+        _shapeComponent.construct();
+        _shapeComponent.innerHTML = txt; // reset it back after construct
+        
+        if (MagicBoard.indicators.hilight) parentFrame.selectToggle();
+    }
+    
+    if (maxHeight > parentFrameDim.height)
+    {
+        parentFrameDim.height = maxHeight; // remember parentFrame is just Text Frame here nothing else
+        parentFrame.dom.setAttribute("height",maxHeight + 5);
+        
+        
+        _shapeComponent.innerHTML = ""; // this will make sure that construct will not call createTextNode again
+        _shapeComponent.construct();
+        _shapeComponent.innerHTML = txt; // reset it back after construct
+        
+        if (MagicBoard.indicators.hilight) parentFrame.selectToggle();
+        Utility.Shape.placement(parentFrame);
+    }
+    
+    
+    //this.dom.appendChild(document.createTextNode(_value));
+    var str = "";
+    // find x, and font-size
+    var dy = "dy =''";
+    var x = _shapeComponent.derivedDimension["x"];
+    for (var i =0, iLen = valArray.length;i < iLen;i++)
+    {
+        var val = valArray[i];
+        if (val)
+        {
+            str += "<tspan name='mg' x='"+x+"' "+dy+">"+Utility.htmlEncode(val)+"</tspan>";
+            // find out its length
+        }
+        dy = " dy = '"+fontSize+"px' ";
+    }
+    
+    // now expand the width automatically if allowed;
+    
+  _shapeComponent.dom.innerHTML = str;
+}
+
 Utility.isIntersecting = function(p1, p2, p3, p4)
 {
     var CCW = function(_p1, _p2, _p3) {
@@ -5200,6 +5595,31 @@ Utility.destroyDom = function(_item,_type)
 
     garbage.appendChild(dom);
     garbage.innerHTML = "";
+}
+
+Utility.htmlEncode = function(_txt)
+{
+    var newText = "";
+    var tLen = _txt.length;
+    for (var t =0; t < tLen;t++)
+    {
+        var ch = _txt.charAt(t);
+        switch (ch)
+        {
+            case "&":
+                newText += "&amp;";
+                break;
+            case ">":
+                newText += "&gt;";
+                break;
+            case "<":
+                newText += "&lt;";
+                break;
+            default:
+                newText += ch;
+        }
+    }
+    return newText;
 }
 
 /**
