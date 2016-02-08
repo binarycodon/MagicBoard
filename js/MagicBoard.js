@@ -10,8 +10,8 @@ var inheritsFrom = function (child, parent) {
 };
 
 
-var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"theme":{"sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"white","lineColor":"#1b8d11","textColor":"white","otherSheetVisibility":"hidden"},scratch:{"path":[]},changed:false,counter:0,
-callbacks:{"alert":"alert"}
+var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"theme":{"name":"default","sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"#ffffff","lineColor":"#1b8d11","textColor":"#ffffff","otherSheetVisibility":"hidden"},scratch:{"path":[]},changed:false,counter:0,
+idTracker:{}
 };
 
 /*
@@ -309,7 +309,7 @@ SheetBook.prototype.setWidth = function(_width)
  */
 SheetBook.prototype.save = function()
 {
-    var saved = {"version":1,"sheets":[]};
+    var saved = {"version":1,"sheets":[],"counter":MagicBoard.counter,"theme":MagicBoard.theme};
     for (s =0, sLen = this.sheets.length; s < sLen;s++)
     {
         saved.sheets.push(this.sheets[s].save());
@@ -421,6 +421,10 @@ Sheet.prototype.delete = function()
         var sh = sheets[s];
         if (sh === this)
         {
+            for (var sp = sh.shapes.length - 1;sp > -1;sp--)
+            {
+                sh.shapes[sp].deleteShape();
+            }
             sheets.splice(s,1);
             break;
         }
@@ -738,19 +742,23 @@ Sheet.prototype.save = function()
   * @param {Color} _lineColor
  *
  */
-Sheet.prototype.changeThemeColor = function(_backgroundColor,_shapeColor,_arrowFillColor,_borderColor,_lineColor)
+Sheet.prototype.changeThemeColor = function(_backgroundColor,_shapeColor,_arrowFillColor,_borderColor,_lineColor,_name)
 {
+    if (!MagicBoard.temp) MagicBoard.temp = {};
+    MagicBoard.temp.theme = {backgroundColor:MagicBoard.theme.backgroundColor,shapeColor:MagicBoard.theme.shapeColor,arrowFillColor:MagicBoard.theme.arrowFillColor,borderColor:MagicBoard.theme.borderColor,lineColor:MagicBoard.theme.lineColor};
     if (_backgroundColor) MagicBoard.theme.backgroundColor = _backgroundColor;
     if (_shapeColor) MagicBoard.theme.shapeColor = _shapeColor;
     if (_arrowFillColor) MagicBoard.theme.arrowFillColor = _arrowFillColor;
     if (_borderColor) MagicBoard.theme.borderColor = _borderColor;
     if (_lineColor) MagicBoard.theme.lineColor = _lineColor;
+    if (_name) MagicBoard.theme.name = _name;
     
     for (var s = 0,sLen = this.shapes.length; s < sLen;s++)
     {
         var shape = this.shapes[s];
         shape.changeThemeColor(_shapeColor,_borderColor,_lineColor);
     }
+    MagicBoard.temp.theme = null; delete MagicBoard.temp["theme"];
 }
 
 /**
@@ -911,11 +919,23 @@ var Shape = function(_desc) {
     this.frame = JSON.parse(JSON.stringify(_desc.frame));
     if (_desc.typeId) {
         this.typeId = _desc.typeId;
-        if (_desc.id) this.id = _desc.id;
-        else this.id = _desc.id+MagicBoard.counter;
+        if (_desc.id) this.id = _desc.id; // if id exist override it
+        else this.id = _desc.typeId+MagicBoard.counter; // else generate a new id
     }
     else if (_desc.id) {this.typeId = _desc.id; this.id = _desc.id+MagicBoard.counter; }
     else this.id = "s"+MagicBoard.counter;
+    
+    // id has to be unique so we need to track it
+    if (MagicBoard.idTracker[this.id])
+    {
+        var dupId = this.id;
+        this.id = this.id+"-"+MagicBoard.idTracker[this.id];
+        MagicBoard.idTracker[this.id] = 1;
+        MagicBoard.idTracker[dupId] = MagicBoard.idTracker[dupId] + 1;
+    } else
+    {
+        MagicBoard.idTracker[this.id] = 1;
+    }
 
     MagicBoard.counter++;
 
@@ -1121,7 +1141,7 @@ Shape.prototype.getShapeDetail = function()
         childDetails.push(childDetail);
     }
 
-    if (childDetails.length > 0) _desc.childrenParms = childDetails;
+    if (childDetails.length > 0) desc.childrenParms = childDetails;
     return desc;
 }
 
@@ -1205,7 +1225,7 @@ Shape.prototype.click = function()
     {
         if (!ev.click) ev.click = {"override":null,"pre":null,"post":null};
         if (ev.click.override) {return window[ev.click.override].call(this);}
-        if (ev.click.pre) window[ev.click.pre].call(this);
+        if (ev.click.pre) window[ev.click.pre].call(this,"click");
     }
 
     this.selectToggle();
@@ -1224,7 +1244,7 @@ Shape.prototype.doubleClick = function()
     {
         if (!ev.doubleClick) ev.doubleClick = {"override":null,"pre":null,"post":null};
         if (ev.doubleClick.override) {return window[ev.doubleClick.override].call(this);}
-        if (ev.doubleClick.pre) window[ev.doubleClick.pre].call(this);
+        if (ev.doubleClick.pre) window[ev.doubleClick.pre].call(this,"doubleClick");
     }
     
     var targetShape = this;
@@ -1369,6 +1389,12 @@ Shape.prototype.resizeContinue = function(pos,clickPos)
  */
 Shape.prototype.resizeStop = function()
 {
+    var ev = this.events;
+    if (ev)
+    {
+        if (ev.resizeStop && ev.resizeStop.pre) window[ev.resizeStop.pre].call(this,"resizeStop");
+    }
+    
     var pos = MagicBoard.indicators.resizeStarted;
     var clickPos = MagicBoard.indicators.click;
     var newPos = {"x":this.dimension.left,"y":this.dimension.top};
@@ -1914,6 +1940,10 @@ Shape.prototype.getArea = function()
  */
 Shape.prototype.deleteShape = function()
 {
+    // reuse the id
+    MagicBoard.idTracker[this.id] = MagicBoard.idTracker[this.id] - 1;
+    if (MagicBoard.idTracker[this.id] === 0) delete MagicBoard.idTracker[this.id];
+    
     MagicBoard.sheetBook.currentSheet.removeShape(this);
     var garbage = MagicBoard.sheetBook.garbage;
     // all the svg is inside a group element so get the parent and delete that
@@ -1980,7 +2010,9 @@ Shape.prototype.selectToggle = function()
     if (MagicBoard.indicators.hilight)
     {
         hilighter.style["visibility"] = "hidden";
-        setTimeout(function(){var shape = MagicBoard.indicators.hilight;MagicBoard.indicators.hilight = false;if (shape.events && shape.events.click && shape.events.click.post) window[shape.events.click.post].call(shape);},1);
+        setTimeout(function(){
+                   var shape = MagicBoard.indicators.hilight;
+                   MagicBoard.indicators.lastHilight = shape;MagicBoard.indicators.hilight = false;if (shape.events && shape.events.click && shape.events.click.post) window[shape.events.click.post].call(shape);},1);
         this.addAlignments();
 
     } else
@@ -2537,6 +2569,7 @@ ShapeComponent.prototype.getComponentDetails = function()
     jsonDescription.dimension = JSON.parse(JSON.stringify(this.dimension));
     jsonDescription.param =  JSON.parse(JSON.stringify(this.param));
     
+    if (this.xlink) jsonDescription.xlink = this.xlink;
     if (this.innerHTML) jsonDescription.innerHTML = this.innerHTML;
     if (this.properties) jsonDescription.properties = this.properties;
     return jsonDescription;
@@ -2613,6 +2646,7 @@ ShapeComponent.prototype.save = function()
         if ( name === "String" || name === "Object" )
             saved[k] = this[k];
     }
+    
     return saved;
 }
 
@@ -2688,7 +2722,7 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
                     var item = dArray[i];
                     if (item.op.toUpperCase() === "Z") {
                         val += " Z ";
-                        break;
+                        continue;
                     }
                     if (!this.lines[i]) this.lines.push({});
                     //val += item.op.toUpperCase() +Math.round( item.x * pw / 100)+" "+Math.round( item.y * ph / 100)+" ";
@@ -2754,11 +2788,13 @@ ShapeComponent.prototype.drawSVG = function(_offsetX, _offsetY)
     } else if (this.type === "text")
     {
         dom.innerHTML = this.dom.innerHTML;
-        var children = this.dom.children;
+        var x = dom.getAttribute("x"); x = parseInt(x);
+        var children = dom.children;
         for (var c=0,cLen = children.length;c < cLen;c++)
         {
             var childDom = children[c];
-            childDom.removeAttribute("x"); // since we don't have high level SVG Tag, remove x from text node.
+            childDom.setAttribute("x",x);
+            //childDom.removeAttribute("x"); // since we don't have high level SVG Tag, remove x from text node.
         }
     }
     return dom;
@@ -2780,13 +2816,20 @@ ShapeComponent.prototype.changeThemeColor = function(_shapeColor,_lineColor)
     var dom = this.dom;
     if (_shapeColor && this.param["fill"])
     {
-        this.param["fill"] = _shapeColor;
-        dom.setAttribute("fill",_shapeColor);
+        if (this.param["fill"] === MagicBoard.temp.theme.shapeColor)
+        {
+            this.param["fill"] = _shapeColor;
+            dom.setAttribute("fill",_shapeColor);
+        }
+
     }
     if (_lineColor && this.param["stroke"])
     {
-        this.param["stroke"] = _lineColor;
-        dom.setAttribute("stroke",_lineColor);
+        if (this.param["stroke"] === MagicBoard.temp.theme.lineColor)
+        {
+            this.param["stroke"] = _lineColor;
+            dom.setAttribute("stroke",_lineColor);
+        }
     }
 }
 
@@ -3363,8 +3406,14 @@ MagicBoard.eventStop = function(e)
     MagicBoard.indicators.mouseDown = false;
     if (MagicBoard.indicators.moveStarted)
     {
+
         // reposition the shape here
         var shape = MagicBoard.indicators.hilight;
+        var ev = shape.events;
+        if (ev)
+        {
+            if (ev.moveStop && ev.moveStop.pre) window[ev.moveStop.pre].call(shape,"moveStop");
+        }
 
         var pos = MagicBoard.indicators.moveStarted; var clickPos = MagicBoard.indicators.click;
         var dim = shape.getDimension();
@@ -3390,6 +3439,7 @@ MagicBoard.eventStop = function(e)
                     top = dim.top + diff;
                 }
             }
+            delete MagicBoard.scratch["prevAlign"];
         }
         if (!left) left = dim.left + diffX;
         if (!top) top = dim.top + diffY;
@@ -3423,6 +3473,7 @@ MagicBoard.eventStop = function(e)
             if (MagicBoard.indicators.resize > -1)
             {
                 var shape = MagicBoard.indicators.hilight;
+                if (!shape) shape = MagicBoard.indicators.lastHilight; // sometime the hilighter may have been turned off
                 shape.resizeStop();
                 MagicBoard.scratch.path = [];
             }
@@ -4371,19 +4422,20 @@ Utility.Shape.placement = function(_shape)
             var restrictDim;
             if (rule.ref === "parent")
             {
-                if (!_shape.parentShape) break;
+                if (!_shape.parentShape) continue;
                 restrictDim = parentDim[rule.refDimension];
             } else if (rule.ref === "sibling")
             {
                 // find previous sibling
                 var children = _shape.parentShape.children;
-                for (var c = 0, cLen = children.length;c < cLen;c++)
+                var cLen = children.length; if (cLen === 0) continue;
+                for (var c = 0;c < cLen;c++)
                 {
                     var child = children[c];
                     if (child === _shape) break;
                     restrictDim = child.frame[rule.refDimension]; // previous sibling's dimension
                 }
-            }
+            } else continue;
             switch (rule.cond)
             {
                     case "=":
@@ -4581,6 +4633,7 @@ Utility.Shape.connectTo = function(_beginShape,_endShape,_connProp)
     currentSheet.addConnections(cInfo);
     currentSheet.drawConnections();
     MagicBoard.changed = true;
+    return cInfo;
 }
 
 /**
@@ -5349,6 +5402,7 @@ Utility.identifyLines = function(_path)
     for (var p = 1; p < pLen ; p++)
     {
         var pos1 = _path[p];
+        if (pos1.x == undefined) continue; // in case there was a bad point
         
         var angle = Math.abs(Math.atan( (pos1.y - pos0.y)/(pos1.x - pos0.x)  )*180/Math.PI);
         if (angle == NaN) continue;
@@ -5492,7 +5546,7 @@ Utility.ShapeComponent.createTextNode = function(_shapeComponent)
     {
         // we need to split the text
         var wordArray = txt.split(" ");
-        var smpTxt = wordArray[0];var prevTxt = ""; maxLen = parentFrameDim.maxRight - parentFrameDim.left ;// keep extra 3 pixel for safty
+        var smpTxt = wordArray[0];var prevTxt = ""; maxLen = parentFrameDim.maxRight - parentFrameDim.minLeft ;// keep extra 3 pixel for safty
         for (var w = 1,wLen = wordArray.length;w < wLen;w++)
         {
             smpTxt += " "+wordArray[w];
@@ -5555,6 +5609,7 @@ Utility.ShapeComponent.createTextNode = function(_shapeComponent)
     // find x, and font-size
     var dy = "dy =''";
     var x = _shapeComponent.derivedDimension["x"];
+    if (isNaN(x)) x = 0;
     for (var i =0, iLen = valArray.length;i < iLen;i++)
     {
         var val = valArray[i];
