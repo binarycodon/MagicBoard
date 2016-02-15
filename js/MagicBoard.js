@@ -914,6 +914,7 @@ var DrawingObject = function()
  */
 var Shape = function(_desc) {
 
+    if (_desc.animation) this.animation = JSON.parse(JSON.stringify(_desc.animation));
     this.param = JSON.parse(JSON.stringify(_desc.param));
     this.originalFrame = JSON.parse(JSON.stringify(_desc.frame));
     this.frame = JSON.parse(JSON.stringify(_desc.frame));
@@ -1351,6 +1352,21 @@ Shape.prototype.move = function(pos,clickPos)
     ctx.stroke();
     MagicBoard.changed = true;
     // done with the alignments
+}
+
+/**
+ * This function will scale the shape
+ * @param _scale - numberic float value to scale
+ * @return - the scale scales
+*/
+Shape.prototype.scale = function(_scale)
+{
+    var dim = this.dimension;
+    dim.width = dim.width * _scale;
+    dim.height = dim.height * _scale;
+    this.dom.setAttribute("width",dim.width);
+    this.dom.setAttribute("height",dim.height);
+    this.reDraw();
 }
 
 /**
@@ -2628,7 +2644,12 @@ ShapeComponent.prototype.construct = function()
         }
     }
     
-    if (this.innerHTML) Utility.ShapeComponent.createTextNode(this);
+    if (this.innerHTML) {
+        if (this.type === "text") Utility.ShapeComponent.createTextNode(this);
+        else {
+            this.dom.innerHTML = this.innerHTML;
+        }
+    }
 
     return dom;
 }
