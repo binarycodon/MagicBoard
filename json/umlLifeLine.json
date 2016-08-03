@@ -1,0 +1,1 @@
+{"id":"umlLifeLine","frame":{"width":100,"height":500,"unit":"px"},"param":{"alignmentRails":true,"connectRules":{"noConnection":true}},"comps":[{"ref":"rect","dimension":{"height":8.333333333333334}},{"ref":"txt","dimension":{"height":8,"x":50,"y":5},"label":"Object","innerHTML":":Object"},{"ref":"umlLifeLine1"}]}

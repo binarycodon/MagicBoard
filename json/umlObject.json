@@ -1,0 +1,8 @@
+{"id":"umlObject",
+"frame":{"width":110,"height":50,"unit":"px"},
+"param":{"alignmentRails":true},
+"comps":[
+         {"ref":"rectWRadius8"},
+         {"ref":"txt","innerHTML":"Object","label":"Object"}
+                  ]
+}

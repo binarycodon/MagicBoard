@@ -1,0 +1,8 @@
+[
+{"id":"sv1","name":"Account Opening","serverId":"server1","serverName":"ms-server1"},
+ {"id":"sv2","name":"Accounts","serverId":"server1","serverName":"ms-server1"},
+ {"id":"sv3","name":"Order Entry","serverId":"server1","serverName":"ms-server1"},
+ {"id":"sv4","name":"Benefits","serverId":"server2","serverName":"ms-server2"},
+ {"id":"sv5","name":"PTI","serverId":"server2","serverName":"ms-server2"},
+  {"id":"sv6","name":"Pricing","serverId":"server2","serverName":"ms-server2"}
+]

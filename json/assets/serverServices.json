@@ -1,0 +1,9 @@
+{
+    "sv1":{"name":"Account Opening","serverId":"server1"},
+    "sv2":{"name":"Accounts","serverId":"server1"},
+    "sv3":{"name":"Order Entry","serverId":"server1"},
+    "sv4":{"name":"Benefits","serverId":"server1"},
+    "sv5":{"name":"PTI","serverId":"server2"},
+    "sv6":{"name":"Pricing","serverId":"server2"}
+}
+

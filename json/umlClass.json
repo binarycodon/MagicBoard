@@ -1,0 +1,10 @@
+{"id":"umlClass","frame":{"width":160,"height":90,"unit":"px"},"param":{"alignmentRails":true},
+    "comps":[{"ref":"umlClass0"}],
+    "childrenParms":[
+                     {"frame":{"width":"100%","height":30,"unit":"px"},"param":{"alignmentRails":false,"noGridBlock":true,"connectRules":{"noConnection":true}},"comps":[{"ref":"horizLine"},{"ref":"umlClassText"}]},
+                     {"frame":{"width":"100%","height":"30%","left":0,"unit":"px"},"param":{"alignmentRails":false,"noGridBlock":true,"connectRules":{"noConnection":true},
+                     "placementRules":[{"dimension":"top","cond":"=","ref":"sibling","refDimension":"bottom"}]
+                     },"comps":[{"ref":"horizLine"},{"ref":"umlFieldText"}]},
+                     {"frame":{"width":"100%","height":"40%","left":0,"unit":"px"},"param":{"alignmentRails":false,"noGridBlock":true,"connectRules":{"noConnection":true},"placementRules":[{"dimension":"top","cond":"=","ref":"sibling","refDimension":"bottom"},{"dimension":"bottom","cond":"=","ref":"parent","refDimension":"bottom"}]},"comps":[{"ref":"horizLine"},{"ref":"umlMethodText"}]}
+                     ]
+}

@@ -1,0 +1,1 @@
+{"id":"umlActivity","frame":{"width":25,"height":90,"unit":"px"},"param":{"alignmentRails":true,"connectRules":{"connectInPlace":true},"placementRules":[{"dimension":"cx","cond":"=","ref":"parent","refDimension":"cx"}]},"comps":[{"ref":"rect"}]}

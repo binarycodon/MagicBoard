@@ -1,0 +1,8 @@
+{ "assetList":[
+  {"id":"serverText","title":"Servers","icon":"image/serverText.png","url":"json/assets/serverList.json"},
+  {"id":"serviceText","title":"Services","icon":"image/gear_ic.png","url":"json/assets/serviceList.json"}
+  ],
+    "assetRules":
+        {"parentTypeId":"serverText","childTypeId":"serviceText","ruleType":"parentChild","url":"json/assets/serviceList.json"}
+
+}

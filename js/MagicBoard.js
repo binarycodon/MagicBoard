@@ -10,7 +10,7 @@ var inheritsFrom = function (child, parent) {
 };
 
 
-var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"theme":{"name":"default","sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"#ffffff","lineColor":"#1b8d11","textColor":"#ffffff","otherSheetVisibility":"hidden"},scratch:{"path":[]},changed:false,counter:0,
+var MagicBoard = {sheetBook:null,"indicators":{"mouseDown":false,"mouseover":[],"click":false,"doubleClick":0,"resize":-1},"boardPos":{x:0,y:0},"timers":{},"theme":{"name":"default","sheetBackground":null,"shapeColor":"#1b8d11","arrowFillColor":"#1b8d11","borderColor":"#ffffff","lineColor":"#1b8d11","textColor":"#ffffff","otherSheetVisibility":"hidden"},scratch:{"path":[]},changed:false,counter:0,
 idTracker:{}
 };
 
@@ -327,6 +327,7 @@ var Sheet = function(_options)
     this.options = {};
     this.name = "Sheet1";
     if (_options.name) this.name = _options.name;
+    if (_options.aligned) this.aligned = true;
     this.temp = _options;
     this.canvas = null;
     this.init();
@@ -384,6 +385,7 @@ Sheet.prototype.init = function()
         }
         delete this["temp"]; // to avoid cyclical reference, delete temp options.
     }
+    if (this.aligned) this.align();
 }
 
 /**
@@ -567,22 +569,146 @@ Sheet.prototype.redo = function()
  */
 Sheet.prototype.align = function()
 {
+    var connectPoints = {}; var xArray = []; var yArray = []
     var sLen = this.shapes.length;
     for (var i = 0; i < sLen;i++)
     {
         var _shape = this.shapes[i];
+        var type = "Shape";
+        if (_shape instanceof ConnectorLine) {
+            type = "ConnectorLine";
+            var cInfo = _shape.cInfo;var pos = cInfo.pos;var bId = cInfo.beginShape.id;var eId = cInfo.endShape.id;var sLabel = pos.pointStart.label; var eLabel = pos.pointEnd.label;
+            if (!connectPoints[bId]) connectPoints[bId] = {};
+            if (!connectPoints[eId]) connectPoints[eId] = {};
+            if (!connectPoints[bId][sLabel]) connectPoints[bId][sLabel] = [];
+            if (!connectPoints[eId][eLabel]) connectPoints[eId][eLabel] = [];
+            connectPoints[bId][sLabel].push({"type":"start","cInfo":cInfo,"sortPoint":{x:pos.x2,y:pos.y2}});
+            connectPoints[eId][eLabel].push({"type":"end","cInfo":cInfo,"sortPoint":{x:pos.x1,y:pos.y1}});
+            for (var t =0, tLen = cInfo.turningPoints.length;t < tLen;t++)
+            {
+                xArray.push({"x":cInfo.turningPoints[t].x,"cInfo":cInfo,"index":t});
+                yArray.push({"y":cInfo.turningPoints[t].y,"cInfo":cInfo,"index":t});
+            }
+        }
+        
         var cx = _shape.frame.cx;var cy = _shape.frame.cy;
         for (var s = i+1;s < sLen;s++)
         {
-            var nextShape = this.shapes[s];
-            if (nextShape instanceof ConnectorLine) continue;
-            var nextCx = nextShape.frame.cx;var nextCy = nextShape.frame.cy;
-            var newPos = {x:nextShape.frame.left,y:nextShape.frame.top}; var alignmentNeeded = false;
-            if (Math.abs(cx - nextCx) < 26 && !(cx === nextCx) ) {newPos.x = cx - nextShape.frame.width/2;alignmentNeeded = true;}
-            if (Math.abs(cy - nextCy) < 26 && !(cy === nextCy)) {newPos.y = cy - nextShape.frame.height/2;alignmentNeeded = true;}
-            if (alignmentNeeded) {nextShape.setPosition(newPos);MagicBoard.changed = true;}
+            var nextShape = this.shapes[s]; var nextType = "Shape";
+            
+            if (nextShape instanceof ConnectorLine) nextType = "ConnectorLine";
+            if (type === "Shape")
+            {
+                if (nextType === "Shape")
+                {
+                    var nextCx = nextShape.frame.cx;var nextCy = nextShape.frame.cy;
+                    var newPos = {x:nextShape.frame.left,y:nextShape.frame.top}; var alignmentNeeded = false;
+                    if (Math.abs(cx - nextCx) < 26 && !(cx === nextCx) ) {newPos.x = cx - nextShape.frame.width/2;alignmentNeeded = true;}
+                    if (Math.abs(cy - nextCy) < 26 && !(cy === nextCy)) {newPos.y = cy - nextShape.frame.height/2;alignmentNeeded = true;}
+                    if (alignmentNeeded) {nextShape.setPosition(newPos);MagicBoard.changed = true;}
+                }
+            } else
+            {
+                if (nextType === "ConnectorLine")
+                {
+                    // fix the turning points; & pos
+                    var nextPos = nextShape.cInfo.pos;
+                    // check all points make a utility function to do it
+                    // check pos.x1 with nextPos.x1 & nextPos.x2  & same with pos.x2 repeat for y then
+                    
+                }
+            }
         }
     }
+    
+    if (xArray.length > 0)
+    {
+        for (var x =0,xLen = xArray.length;x < xLen;x++)
+        {
+            var xPoint = xArray[x];
+            for (var i = (x + 1); i < xLen;i++)
+            {
+                var nXPoint = xArray[i];
+                if (Math.abs(xPoint.x - nXPoint.x) < 26)
+                {
+                    nXPoint.cInfo.turningPoints[nXPoint.index].x = xPoint.x;
+                }
+            }
+        }
+    }
+    
+    if (yArray.length > 0)
+    {
+        for (var y =0,yLen = yArray.length;y < yLen;y++)
+        {
+            var yPoint = yArray[y];
+            for (var i = (y + 1); i < yLen;i++)
+            {
+                var nYPoint = yArray[i];
+                if (Math.abs(yPoint.y - nYPoint.y) < 26)
+                {
+                    nYPoint.cInfo.turningPoints[nYPoint.index].y = yPoint.y;
+                }
+            }
+        }
+    }
+    
+    var compareX = function(a,b) {
+        if (a.sortPoint.x < b.sortPoint.x)
+            return -1;
+        else if (a.sortPoint.x > b.sortPoint.x)
+            return 1;
+        else
+            return 0;
+    }
+    
+    var compareY = function(a,b) {
+        if (a.sortPoint.y < b.sortPoint.y)
+            return -1;
+        else if (a.sortPoint.y > b.sortPoint.y)
+            return 1;
+        else
+            return 0;
+    }
+    
+    var shift = [[-5,5],[-5,0,5],[-10,-5,5,10],[-10,-5,0,5,10],[-15,-10,-5,5,10,15],[-15,-10,-5,0,5,10,15]];
+    // go through all the connection points;
+    for (var s in connectPoints)
+    {
+        // check each labels to see if their are multiples
+        for (var k in connectPoints[s])
+        {
+            var arr = connectPoints[s][k];
+            var aLen = arr.length;
+            if (aLen > 1)
+            {
+                var currentShift = shift[aLen - 2];
+                // need to adjust points here
+                if (k === "m12" || k=== "m34") {
+                    arr.sort(compareX);
+                    for (var a =0;a < aLen;a++)
+                    {
+                        var dt = arr[a];
+                        if (dt.type === "start" ) {dt.cInfo.pos.offSetX1 = currentShift[a];}
+                        else dt.cInfo.pos.offSetX2 = currentShift[a];
+                    }
+                }
+                else {
+                    arr.sort(compareY);
+                    for (var a =0;a < aLen;a++)
+                    {
+                        var dt = arr[a];
+                        if (dt.type === "end" ) dt.cInfo.pos.offSetY1 = currentShift[a];
+                        else dt.cInfo.pos.offSetY2 = currentShift[a];
+                    }
+                }
+                
+            }
+        }
+        
+    }
+    MagicBoard.changed = false;
+    this.refreshConnections();
 }
 
 /**
@@ -591,13 +717,10 @@ Sheet.prototype.align = function()
  */
 Sheet.prototype.refreshConnections = function()
 {
-    var sLen = this.shapes.length;
-    for (var i = 0; i < sLen;i++)
-    {
-        var _shape = this.shapes[i];
-        _shape.refreshConnection();
-    }
+    if (MagicBoard.timers.refreshConnections) clearTimeout(MagicBoard.timers.refreshConnections);
+    MagicBoard.timers.refreshConnections = setTimeout(Utility.Sheet.refreshConnections,10);
 }
+
 /**
  * This Function converts the Sheet into an image
  *  @param - {String} _type - type of image to download
@@ -723,6 +846,7 @@ Sheet.prototype.save = function()
     var saved = {};
     saved.options = this.options;
     saved.name = this.name;
+    if (this.aligned) saved.aligned = true;
     saved.shapes = [];
     for (var s = 0,sLen = this.shapes.length; s < sLen;s++)
     {
@@ -796,89 +920,19 @@ Sheet.prototype.removeConnections = function(_shape)
  */
 Sheet.prototype.drawConnections = function(_context)
 {
-    var ctx = _context;
-    if (!_context)
-    {
-        setTimeout(function(){
-                   Utility.SheetBook.clearScratchCanvas() ;
-                   },700);
-        /*
-         var canvas = MagicBoard.sheetBook.connectCanvas;
-         ctx = MagicBoard.sheetBook.connectCtx;
-         ctx.clearRect(0,0,canvas.width,canvas.height);
-         */
-
-    }
-    /*
-     var garbage = MagicBoard.sheetBook.garbage;
-     var children = this.canvas.children;
-     for (var c = children.length -1;c > -1;c--)
+    if (MagicBoard.timers.drawConnections) clearTimeout(MagicBoard.timers.drawConnections);
+    
+     var ctx = _context;
+     if (!_context)
      {
-     var child = children[c];
-     if (child && child.nodeType === 1 && child.getAttribute("name") == "connection" )
-     {
-     garbage.appendChild(child);
+         if (MagicBoard.timers.clearScratchCanvas) clearTimeout(MagicBoard.timers.clearScratchCanvas);
+         MagicBoard.timers.clearScratchCanvas = setTimeout(function(){
+                                                        Utility.SheetBook.clearScratchCanvas() ;
+                                                        delete MagicBoard.timers.clearScratchCanvas
+                                                        },400);
+     
      }
-     }
-     garbage.innerHTML = "";
-     */
-    //ctx.strokeStyle = MagicBoard.theme.shapeColor;
-    //ctx.lineWidth = 2;
-    //ctx.setLineDash([5, 0]);
-
-    var conn = this.connections;
-    var cLen = conn.length;
-    var angle = null;
-    for (var i = 0; i < cLen;i++)
-    {
-        var cInfo = conn[i];
-        /*
-         var pos = cInfo.pos;
-         var midX = (pos.x1+pos.x2)/2;
-         var midY = (pos.y1+pos.y2)/2;
-         ctx.beginPath();
-         ctx.moveTo(pos.x1,pos.y1);
-         if (cInfo.orientation === "vert")
-         {
-         ctx.lineTo(pos.x1,midY);
-         ctx.lineTo(pos.x2,midY);
-         angle = Drawing.getLineAngle(pos.x2,pos.y2,pos.x2,midY);
-         } else
-         {
-         ctx.lineTo(midX,pos.y1);
-         ctx.lineTo(midX,pos.y2);
-         angle = Drawing.getLineAngle(pos.x2,pos.y2,midX,pos.y2);
-         }
-
-         ctx.lineTo(pos.x2,pos.y2);
-         ctx.stroke();
-         */
-        //var arrowCoord = Drawing.drawArrow(ctx,pos.x2,pos.y2,angle); // arrow for criss cross line
-        if (cInfo.shape) {
-            cInfo.shape.deleteShape(true); // keep the connection, just delete the shape
-            cInfo.shape = null;
-        }
-        var cLine = new ConnectorLine(cInfo);
-        cLine.draw();
-    }
-    /*
-     for (var i = 0; i < cLen;i++)
-     {
-     var cInfo = conn[i];
-     var pos = cInfo.pos;
-     ctx.beginPath();
-     ctx.moveTo(pos.x1,pos.y1);
-     ctx.lineTo(pos.x2,pos.y2); // direct line
-     //ctx.moveTo(pos.x1,pos.y1);
-     //ctx.lineTo(pos.x1,pos.y2);
-     //ctx.lineTo(pos.x2,pos.y2);
-     ctx.stroke();
-     var angle = Drawing.getLineAngle(pos.x2,pos.y2,pos.x1,pos.y1);
-     var arrowCoord = Drawing.drawArrow(ctx,pos.x2,pos.y2,angle); // arrow for direct line
-     //var angle = Drawing.getLineAngle(pos.x2,pos.y2,pos.x1,pos.y2);
-     //var arrowCoord = Drawing.drawArrow(ctx,pos.x2,pos.y2,angle); // arrow for criss cross line
-     }
-     */
+    MagicBoard.timers.drawConnections = setTimeout(Utility.Sheet.drawConnections,10);
 
 }
 
@@ -912,12 +966,19 @@ var DrawingObject = function()
  *  @constructor
  *  @param {Object} - _desc - JSON Object describing the shape
  */
-var Shape = function(_desc) {
+var Shape = function(_shapeDesc) {
 
-    if (_desc.animation) this.animation = JSON.parse(JSON.stringify(_desc.animation));
-    this.param = JSON.parse(JSON.stringify(_desc.param));
+    if (_shapeDesc.parent) {
+        // replace parent by parent Id else we get circular json
+        _shapeDesc.parentId = _shapeDesc.parent.id;
+        delete _shapeDesc.parent;
+    }
+    var _desc = JSON.parse(JSON.stringify(_shapeDesc));
+    //this.shapeJson = _desc;
+    if (_desc.animation) this.animation = _desc.animation;
+    this.param = _desc.param;
     this.originalFrame = JSON.parse(JSON.stringify(_desc.frame));
-    this.frame = JSON.parse(JSON.stringify(_desc.frame));
+    this.frame = _desc.frame;
     if (_desc.typeId) {
         this.typeId = _desc.typeId;
         if (_desc.id) this.id = _desc.id; // if id exist override it
@@ -939,14 +1000,10 @@ var Shape = function(_desc) {
     }
 
     MagicBoard.counter++;
-
+    
     if (_desc.parentId)
     {
         _desc.parent = Utility.Sheet.findShapeById(_desc.parentId);
-    }
-    
-    if (_desc.parent)
-    {
         this.param.alignmentRails = false;
         this.param.noGridBlock = true;
         this.parentShape = _desc.parent;
@@ -1071,8 +1128,6 @@ var Shape = function(_desc) {
             //shape.setPosition({x:shape.dimension.left,y:shape.dimension.top});// this is needed for middle point calculations and alignments
         }
     }
-
-
 }
 
 
@@ -1157,7 +1212,7 @@ Shape.prototype.createCanvas = function()
     this.dom.setAttribute("width",width);
     this.dom.setAttribute("height",height);
     this.dom.setAttribute("pointer-events","all");
-    this.dom.setAttribute("style","position:absolute;-ms-user-select:none;-webkit-user-select:none;z-index:10;z-index:1");
+    this.dom.setAttribute("style","position:absolute;-ms-user-select:none;-webkit-user-select:none;z-index:1");
     this.dom.setAttribute("x", Utility.Shape.dataFormatter(this.frame.left,"left",this)) ;
     this.dom.setAttribute("y",Utility.Shape.dataFormatter(this.frame.top,"top",this));
     domParent.appendChild(this.dom);
@@ -1738,8 +1793,29 @@ Shape.prototype.setPosition = function(pos,align)
     
     if (pos.x < this.frame.minLeft) pos.x = this.frame.minLeft;
     if (pos.y < this.frame.minTop) pos.y = this.frame.minTop;
-    if (maxRight < (pos.x + dim.width)) {if (this.parentShape) pos.x = this.frame.maxRight - dim.width ; else MagicBoard.sheetBook.setWidth(MagicBoard.sheetBook.cwidth+512);}
-    if (maxBottom < (pos.y+dim.height)) {if (this.parentShape) pos.y = this.frame.maxBottom - dim.height ;else MagicBoard.sheetBook.setHeight(MagicBoard.sheetBook.cheight+512);}
+    if (maxRight < (pos.x + dim.width)) {
+        if (this.parentShape) {
+            var px  = this.frame.maxRight - dim.width ;
+            if (px < this.frame.minLeft) {
+                dim.width = dim.maxRight - dim.minLeft;
+                pos.x = dim.minLeft;
+            }
+                else pos.x = px;
+        }
+        else
+            MagicBoard.sheetBook.setWidth(MagicBoard.sheetBook.cwidth+512);
+    }
+    if (maxBottom < (pos.y+dim.height)) {
+        if (this.parentShape) {
+            var py = this.frame.maxBottom - dim.height ;
+            if (py < dim.minTop) {
+                dim.height = dim.maxBottom - dim.minTop;
+                pos.y = dim.minTop;
+            }
+        }
+        else
+            MagicBoard.sheetBook.setHeight(MagicBoard.sheetBook.cheight+512);
+    }
     
     if (align)
     {
@@ -1753,6 +1829,10 @@ Shape.prototype.setPosition = function(pos,align)
 
     dim.left = pos.x;
     dim.top = pos.y;
+    
+    if (!(pos.z == undefined)) {dim.z = pos.z;
+       this.dom.style["z-index"] = pos.z;
+    }
 
     Utility.Shape.definePeriferalPoints(dim,parentDim);
 
@@ -1956,6 +2036,11 @@ Shape.prototype.getArea = function()
  */
 Shape.prototype.deleteShape = function()
 {
+    if (MagicBoard.indicators.hilight)
+    {
+        this.selectToggle();
+    }
+    
     // reuse the id
     MagicBoard.idTracker[this.id] = MagicBoard.idTracker[this.id] - 1;
     if (MagicBoard.idTracker[this.id] === 0) delete MagicBoard.idTracker[this.id];
@@ -2269,7 +2354,11 @@ var ConnectorLine = function(_cInfo)
     var conn = {"type":"path","origDim":{},"dimension":{"d":coord.d},
         "param":{"fill":"none","stroke":MagicBoard.theme.lineColor,"stroke-miterlimit":"10","stroke-width":2,"cursor":"hand"},
         "lines":coord.lines,
-        properties:{"line-style":true,"line-type":true,"line-color":true,"start-marker":true,"end-marker":true,"mid-marker":true}}
+        properties:{"line-style":true,"line-type":true,"line-color":true,"start-marker":true,"end-marker":true,"mid-marker":true}};
+    var shadowConn = {"type":"path","origDim":{},"dimension":{"d":coord.d},
+        "param":{"fill":"none","stroke":MagicBoard.theme.lineColor,"opacity":0,"stroke-miterlimit":"10","stroke-width":20,"cursor":"hand"},
+        "lines":coord.lines,
+        properties:{}}
 
 
     if (_cInfo.param) conn.param = _cInfo.param;
@@ -2285,7 +2374,9 @@ var ConnectorLine = function(_cInfo)
     }
     
     var component = new ShapeComponent(conn);
-    this.components.push(component);
+    var shadowComponent = new ShapeComponent(shadowConn);
+    this.components.push(component);this.components.push(shadowComponent);
+    
     
     if(_cInfo.connProp.begin) {
         var dArray;
@@ -2304,6 +2395,17 @@ var ConnectorLine = function(_cInfo)
     this.properties = component.properties;
     if (_cInfo.events) this.events = _cInfo.events;
     var cdom = component.dom;
+    var cdom = shadowComponent.dom;
+    
+    /*
+    cdom.onlick = function() {
+        var cLine = MagicBoard.sheetBook.star.cLine;
+        if (cLine)
+        {
+            cLine.click();
+        }
+    }
+    */
 
     cdom.onmouseover = function () {
         MagicBoard.indicators.mouseover.push(cLine);
@@ -2312,12 +2414,18 @@ var ConnectorLine = function(_cInfo)
         var starStyle = MagicBoard.sheetBook.star.style;
         starStyle["display"] = "block";starStyle["left"] = pos.x - 10; starStyle["top"] = pos.y - 10;
         MagicBoard.sheetBook.star.cLine = cLine;
+        event.target.setAttribute("opacity",0.7);
+        event.target.setAttribute("stroke",MagicBoard.theme.lineColor);
         //console.log("mouse over "+event.target+" current "+event.currentTarget);
     }
 
     cdom.onmouseout = function () {
         event.preventDefault();
-        setTimeout(function(){MagicBoard.sheetBook.star.style["display"] = "none";},300);
+        var target = event.target;
+        
+        setTimeout(function(){MagicBoard.sheetBook.star.style["display"] = "none";
+                   target.setAttribute("opacity",0);
+                   },300);
         // find the shape and remove it
         //console.log("mouse out");
         for (var i = MagicBoard.indicators.mouseover.length -1;i > -1;i--)
@@ -2464,9 +2572,6 @@ ConnectorLine.prototype.deleteShape = function(keepConnection)
 {
     var beginShape = this.cInfo.beginShape;
     var endShape = this.cInfo.endShape;
-
-
-
 
     MagicBoard.sheetBook.currentSheet.removeShape(this);
     var garbage = MagicBoard.sheetBook.garbage;
@@ -2686,7 +2791,7 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
     var margin = 0;
     if (this.param["stroke-width"])
     {
-        margin = parseInt(this.param["stroke-width"]);
+       // margin = parseInt(this.param["stroke-width"]);
     }
 
     var pw = this.parentShape.frame.width -2*margin;
@@ -2704,9 +2809,17 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
     for (var k in this.dimension)
     {
         var val = "";
-        var percentVal = this.dimension[k]
+        var percentVal = this.dimension[k];
         switch (k)
         {
+            case "fixed":
+                var fixedValObj = this.dimension[k];
+                for (var prm in fixedValObj)
+                {
+                        derivedDimension[prm] = fixedValObj[prm];
+                }
+                val = null; // null will ensure that derivedDimension is not set incorrectly outside the switch
+                break;
             case "width":
                 val = (percentVal * pw / 100) - 2 * margin;
                 break;
@@ -2741,11 +2854,11 @@ ShapeComponent.prototype.calculateDimensions = function(_offsetX, _offsetY)
                 for (var i = 0; i < dLen ;i++)
                 {
                     var item = dArray[i];
+                    if (!this.lines[i]) this.lines.push({});
                     if (item.op.toUpperCase() === "Z") {
                         val += " Z ";
                         continue;
                     }
-                    if (!this.lines[i]) this.lines.push({});
                     //val += item.op.toUpperCase() +Math.round( item.x * pw / 100)+" "+Math.round( item.y * ph / 100)+" ";
                     for (var ik in item)
                     {
@@ -3866,6 +3979,39 @@ Utility.SheetBook.createSheet = function(_name,_svg)
     return sheet1;
 }
 
+Utility.Sheet.refreshConnections = function()
+{
+
+    var sheet = MagicBoard.sheetBook.currentSheet;
+                                                      
+    var sLen = sheet.shapes.length;
+    for (var i = 0; i < sLen;i++)
+    {
+        var _shape = sheet.shapes[i];
+        _shape.refreshConnection();
+    }
+    delete MagicBoard.timers.refreshConnections;
+}
+
+Utility.Sheet.drawConnections = function()
+{
+    var sheet = MagicBoard.sheetBook.currentSheet;
+    
+    var conn = sheet.connections;
+    var cLen = conn.length;
+    var angle = null;
+    for (var i = 0; i < cLen;i++)
+    {
+        var cInfo = conn[i];
+        if (cInfo.shape) {
+            cInfo.shape.deleteShape(true); // keep the connection, just delete the shape
+            cInfo.shape = null;
+        }
+        var cLine = new ConnectorLine(cInfo);
+        cLine.draw();
+    }
+    delete MagicBoard.timers.drawConnections;
+}
 
 /**
  *  This Utility function is for internal use
@@ -4179,9 +4325,10 @@ Utility.Shape.definePeriferalPoints = function(_dim,_parentDim)
 {
     _dim.right = _dim.left + _dim.width;
     _dim.bottom = _dim.top + _dim.height;
+
     _dim.cx = _dim.left + (_dim.width)/2;
     _dim.cy = _dim.top + (_dim.height)/2;
-    
+    _dim.c = {x:_dim.cx,y:_dim.cy};
     
     var edgePoints = {
         "c1":{"x":_dim.left,"y":_dim.top},
@@ -4440,12 +4587,12 @@ Utility.Shape.placement = function(_shape)
         for (var p = 0, pLen = placementRules.length;p < pLen;p++)
         {
             var rule = placementRules[p];
-            var restrictDim;
+            var restrictDim = null;var offset = 0;if (rule.offset) offset = rule.offset;
             if (rule.ref === "parent")
             {
                 if (!_shape.parentShape) continue;
                 restrictDim = parentDim[rule.refDimension];
-            } else if (rule.ref === "sibling")
+            } else if (rule.ref === "sibling" && _shape.parentShape)
             {
                 // find previous sibling
                 var children = _shape.parentShape.children;
@@ -4457,11 +4604,12 @@ Utility.Shape.placement = function(_shape)
                     restrictDim = child.frame[rule.refDimension]; // previous sibling's dimension
                 }
             } else continue;
+            if (!restrictDim) continue;
             switch (rule.cond)
             {
                     case "=":
                         origDim[rule.dimension] = _shape.dimension[rule.dimension];
-                        _shape.dimension[rule.dimension] = restrictDim;
+                        _shape.dimension[rule.dimension] = restrictDim + offset;
                         switch (rule.dimension)
                         {
                             case "cx":
@@ -4565,6 +4713,7 @@ Utility.Shape.placement = function(_shape)
                     break;
             }
         }
+        _shape.drawn = false;
     }
 }
 
@@ -4789,9 +4938,12 @@ Utility.Shape.reCalculateConnectionPoints = function(_cInfo)
     var startLabel = pos.pointStart.label;
     var endLabel = pos.pointEnd.label;
     
-    var frame1 = beginShape.frame.edgePoints;var frame2 = endShape.frame.edgePoints;
-    pos.x1 = frame1[startLabel].x;pos.y1 = frame1[startLabel].y;
-    pos.x2 = frame2[endLabel].x;pos.y2 = frame2[endLabel].y;
+
+        var frame1 = beginShape.frame.edgePoints;var frame2 = endShape.frame.edgePoints;
+        pos.x1 = frame1[startLabel].x;pos.y1 = frame1[startLabel].y;
+        if (pos.offSetX1) pos.x1 += pos.offSetX1;if (pos.offSetY1) pos.y1 += pos.offSetY1;
+        pos.x2 = frame2[endLabel].x;pos.y2 = frame2[endLabel].y;
+        if (pos.offSetX2) pos.x2 += pos.offSetX2;if (pos.offSetY2) pos.y2 += pos.offSetY2;
     
     var turningPoints = _cInfo.turningPoints; var p1 = {x:pos.x1,y:pos.y1,angle:pos.startAngle};
     for (var t =0, tLen = turningPoints.length;t < tLen;t++)
@@ -5560,20 +5712,26 @@ Utility.ShapeComponent.createTextNode = function(_shapeComponent)
 {
     var txt = _shapeComponent.innerHTML;
     var tLen = 0;var maxLen = 0;var parentFrame = _shapeComponent.parentShape;var parentFrameDim = parentFrame.frame;
+    
+    var resize = MagicBoard.indicators.resize;
     var fontSize = _shapeComponent.param["font-size"];if (!fontSize) fontSize = 12;maxHeight = 3;
     var valArray = [];
     
-    if (parentFrameDim.maxRight)
+    if (parentFrameDim.maxRight || resize)
     {
         // we need to split the text
         var wordArray = txt.split(" ");
-        var smpTxt = wordArray[0];var prevTxt = ""; maxLen = parentFrameDim.maxRight - parentFrameDim.minLeft ;// keep extra 3 pixel for safty
+        var smpTxt = wordArray[0];var prevTxt = "";
+        if (resize) {
+            maxLen = _shapeComponent.parentShape.dimension.width;
+        }
+        else maxLen = parentFrameDim.maxRight - parentFrameDim.minLeft ;
         for (var w = 1,wLen = wordArray.length;w < wLen;w++)
         {
             smpTxt += " "+wordArray[w];
             MagicBoard.sheetBook.sampleText.innerHTML = "";
             MagicBoard.sheetBook.sampleText.appendChild(document.createTextNode(smpTxt));tLen = MagicBoard.sheetBook.sampleText.getComputedTextLength();
-            if (tLen > maxLen  )
+            if (tLen > (maxLen - 5) )
             {
                 maxHeight = maxHeight + fontSize;
                 valArray.push(prevTxt); // this one line

@@ -1,0 +1,4 @@
+{"id":"layers",
+    "frame":{"left":10,"width":"80%","height":150,"border":"1px solid","border-radius":"10px","unit":"px"},"param":{"alignmentRails":true},"comps":[{"ref":"rectWRadius8","param":{"fill":"none"}
+                                                                                                                                                    }]
+}
